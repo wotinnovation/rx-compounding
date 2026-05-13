@@ -135,7 +135,7 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
             <Zap className="text-primary" size={24} />
           </div>
           <div className="divide-y divide-border">
-            {todaysFocus.slice(0, 8).map((app, i) => (
+            {todaysFocus.slice(0, 6).map((app, i) => (
               <motion.div
                 key={app.id}
                 initial={{ opacity: 0, y: 10 }}

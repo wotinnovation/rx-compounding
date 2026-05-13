@@ -59,7 +59,7 @@ const descriptions = [
 const meetings: Appointment[] = [];
 
 // ── Today's Scheduled Activities ───────────────────────────────────────────
-for (let i = 1; i <= 8; i++) {
+for (let i = 1; i <= 6; i++) {
   const hospital = hospitalNames[i % hospitalNames.length];
   const doctor = doctorNames[i % doctorNames.length];
   const patient = patientNames[i % patientNames.length];
