@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Sidebar } from "@/components/sidebar";
 import { useAuth } from "@/lib/context/auth-context";
-import { DashboardOverview } from "@/components/dashboard-overview";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
-export default function HomePage() {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
@@ -17,5 +22,5 @@ export default function HomePage() {
 
   if (isLoading || !user) return null;
 
-  return <DashboardOverview />;
+  return <>{children}</>;
 }

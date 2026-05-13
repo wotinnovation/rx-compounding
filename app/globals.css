@@ -1,26 +1,168 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --font-ubuntu: var(--font-ubuntu);
 }
 
-@media (prefers-color-scheme: dark) {
+@utility font-ubuntu {
+  font-family: var(--font-ubuntu);
+}
+
+:root {
+  --background: #fdf2f8; /* Very light pink/magenta */
+  --foreground: #1e1b4b; /* Deep indigo for contrast */
+  
+  --card: #ffffff;
+  --card-foreground: #1e1b4b;
+  
+  --popover: #ffffff;
+  --popover-foreground: #1e1b4b;
+  
+  /* Primary is now a sophisticated magenta/purple */
+  --primary: #9d174d; 
+  --primary-foreground: #ffffff;
+  
+  --secondary: rgba(157, 23, 77, 0.05);
+  --secondary-foreground: #9d174d;
+  
+  --muted: rgba(157, 23, 77, 0.03);
+  --muted-foreground: #64748b;
+  
+  --accent: #fce7f3;
+  --accent-foreground: #9d174d;
+  
+  --destructive: #be123c;
+  --destructive-foreground: #ffffff;
+  
+  --border: rgba(157, 23, 77, 0.1);
+  --input: rgba(157, 23, 77, 0.1);
+  --ring: #f472b6;
+  
+  --radius: 10px;
+
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 80px;
+}
+
+@media (max-width: 1400px) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --sidebar-width: 200px;
+    --sidebar-collapsed-width: 64px;
+  }
+  
+  html {
+    font-size: 14px;
+  }
+
+  /* Dashboard specific refinements for tighter layout */
+  h1 { font-size: 2.25rem !important; }
+  h2 { font-size: 1.5rem !important; }
+  
+  .gap-10 { gap: 1.5rem !important; }
+  .gap-12 { gap: 2rem !important; }
+  
+  /* Reduce padding in cards and sections */
+  .p-8, .px-8, .py-8 { padding: 1.5rem !important; }
+  .px-10 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+  .py-6 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .gap-6 { gap: 1rem !important; }
+  .gap-8 { gap: 1.5rem !important; }
+
+  /* Sidebar specific tightening */
+  .sidebar-container .p-6 { padding: 1rem !important; }
+  .sidebar-container nav { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+  .sidebar-container nav a { gap: 0.5rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  .sidebar-container .text-xl { font-size: 1.1rem !important; }
+
+  /* Sales Team section tightening */
+  .sales-team-section .text-xl { font-size: 1.1rem !important; }
+  .sales-team-section .text-sm { font-size: 0.8rem !important; }
+  .sales-team-section .text-xs { font-size: 0.7rem !important; }
+  .sales-team-section .text-\[10px\] { font-size: 8px !important; }
+
+  /* Dashboard Header tightening */
+  .dashboard-header .text-4xl, .dashboard-header .lg\:text-6xl { font-size: 1.75rem !important; }
+  .dashboard-header .text-sm { font-size: 0.75rem !important; }
+  .dashboard-header p { font-size: 0.8rem !important; }
+  .dashboard-header button { font-size: 0.75rem !important; padding: 0.5rem 1rem !important; }
+
+  h3 { font-size: 1.25rem !important; }
+  h4 { font-size: 1rem !important; }
+
+  /* KPI / Stat Card tightening */
+  .stat-card-container .text-3xl { font-size: 1.25rem !important; }
+  .stat-card-container .text-\[10px\] { font-size: 8px !important; }
+  .stat-card-container .w-14, .stat-card-container .w-12 { width: 2.5rem !important; height: 2.5rem !important; }
+  .stat-card-container svg { width: 18px !important; height: 18px !important; }
+  .stat-card-container .p-6 { padding: 1rem !important; }
+
+  /* Calendar tightening */
+  .calendar-grid-container { min-width: 900px !important; }
+  .calendar-grid-container .p-6 { padding: 0.75rem !important; }
+  .calendar-grid-container .text-xl { font-size: 1rem !important; }
+  .calendar-grid-container .min-h-\[140px\] { min-height: 100px !important; }
+  .calendar-grid-container .p-2 { padding: 0.25rem !important; }
+}
+
+.dark {
+  --background: #fdf2f8;
+  --foreground: #1e1b4b;
+  --card: #ffffff;
+  --card-foreground: #1e1b4b;
+  --primary: #9d174d;
+  --primary-foreground: #ffffff;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.glass {
+  @apply bg-white/30 backdrop-blur-xl border border-white/40 shadow-xl;
+}
+
+.card-shadow {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+}
+
+/* Animations for a premium feel */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
