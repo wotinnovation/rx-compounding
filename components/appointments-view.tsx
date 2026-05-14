@@ -14,8 +14,11 @@ import {
   Activity,
   Zap,
   LayoutList,
-  CalendarDays
+  CalendarDays,
+  Plus,
+  Edit2
 } from "lucide-react";
+import { NewAuditForm } from "./forms/new-audit-form";
 import { motion, AnimatePresence } from "framer-motion";
 import { useData, Appointment } from "@/lib/context/data-context";
 import { cn } from "@/lib/utils";
@@ -42,23 +45,36 @@ interface AppointmentsViewProps {
 export function AppointmentsView({ title, subtitle, data, role }: AppointmentsViewProps) {
   const { isLoading } = useData();
   const [view, setView] = useState<"list" | "calendar">("calendar");
+  const [listPeriod, setListPeriod] = useState<"today" | "month" | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedMeeting, setSelectedMeeting] = useState<Appointment | null>(null);
   const [loggingMeeting, setLoggingMeeting] = useState<Appointment | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addPreFill, setAddPreFill] = useState<{ date?: string, hour?: string } | null>(null);
+  const [editingMeeting, setEditingMeeting] = useState<Appointment | null>(null);
   
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 13));
 
   const filtered = useMemo(() => {
+    const today = new Date(2026, 4, 13).toISOString().split('T')[0];
     return data.filter(app => {
       const q = searchQuery.toLowerCase();
       const matchesSearch = app.title.toLowerCase().includes(q) || 
                            app.entityName.toLowerCase().includes(q) ||
                            (app.contactPerson && app.contactPerson.toLowerCase().includes(q));
       const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      
+      let matchesPeriod = true;
+      if (listPeriod === "today") {
+        matchesPeriod = app.date === today;
+      } else if (listPeriod === "month") {
+        matchesPeriod = app.date.startsWith("2026-05"); // Assuming May for demo
+      }
+
+      return matchesSearch && matchesStatus && matchesPeriod;
     });
-  }, [data, searchQuery, statusFilter]);
+  }, [data, searchQuery, statusFilter, listPeriod]);
 
   const startOfWeek = useMemo(() => {
     const d = new Date(currentDate);
@@ -80,7 +96,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
     <div className="space-y-12 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80 min-[1400px]:block hidden">
             {role === "Manager" ? "Strategic Oversight" : "Logistical Intelligence"}
           </h2>
           <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">{title}</h1>
@@ -88,12 +104,20 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
             {subtitle}
           </p>
         </div>
-        <div className="flex items-center gap-3 bg-card border border-border p-1.5 rounded-[10px] shadow-xl">
-          <button onClick={() => setView("list")} className={cn("px-4 py-2.5 rounded-[10px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all", view === "list" ? "bg-primary text-white" : "text-muted-foreground hover:bg-secondary")}>
-            <LayoutList size={16} /> List
-          </button>
-          <button onClick={() => setView("calendar")} className={cn("px-4 py-2.5 rounded-[8px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all", view === "calendar" ? "bg-primary text-white" : "text-muted-foreground hover:bg-secondary")}>
-            <CalendarDays size={16} /> Calendar
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 bg-card border border-border p-1.5 rounded-[10px] shadow-xl">
+            <button onClick={() => setView("list")} className={cn("px-4 py-2.5 rounded-[10px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all", view === "list" ? "bg-primary text-white" : "text-muted-foreground hover:bg-secondary")}>
+              <LayoutList size={16} /> List
+            </button>
+            <button onClick={() => setView("calendar")} className={cn("px-4 py-2.5 rounded-[8px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all", view === "calendar" ? "bg-primary text-white" : "text-muted-foreground hover:bg-secondary")}>
+              <CalendarDays size={16} /> Calendar
+            </button>
+          </div>
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-4 bg-primary text-primary-foreground rounded-[10px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all"
+          >
+            <Plus size={16} /> Add Appointment
           </button>
         </div>
       </header>
@@ -105,7 +129,21 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
               <input type="text" placeholder="Search operations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-card border border-border rounded-[10px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
             </div>
-            <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide items-center">
+              <div className="flex bg-secondary/20 p-1 rounded-lg border border-border mr-2">
+                <button 
+                  onClick={() => setListPeriod("today")} 
+                  className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "today" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
+                >Today</button>
+                <button 
+                  onClick={() => setListPeriod("month")} 
+                  className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "month" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
+                >Month</button>
+                <button 
+                  onClick={() => setListPeriod("all")} 
+                  className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "all" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
+                >All</button>
+              </div>
               {["all", "scheduled", "upcoming", "completed", "visited"].map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-6 py-3 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border", statusFilter === s ? "bg-primary text-white border-primary" : "bg-card border-border text-muted-foreground")}>{s}</button>
               ))}
@@ -135,6 +173,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                   <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Medical Facility</th>
                   <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Personnel & Patient</th>
                   <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Status</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Manage</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -179,6 +218,14 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                     <td className="px-8 py-6 text-right">
                       <span className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[10px] font-black uppercase tracking-widest border", STATUS_CONFIG[app.status]?.pill || "bg-secondary text-muted-foreground")}>{app.status}</span>
                     </td>
+                    <td className="px-8 py-6 text-center">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingMeeting(app); }}
+                        className="p-2.5 bg-secondary/50 text-muted-foreground border border-border rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </td>
                   </motion.tr>
                 ))}
               </tbody>
@@ -211,7 +258,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                     const hourApps = filtered.filter(a => a.date === dayDateStr && a.hour === hour);
                     return (
                       <div key={dayIdx} className="p-2 border-r last:border-0 border-border relative hover:bg-primary/5 transition-all group/cell">
-                        {hourApps.map((app) => (
+                        {hourApps.length > 0 ? hourApps.map((app) => (
                           <motion.div key={app.id} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={() => setSelectedMeeting(app)} className={cn("absolute inset-2 rounded-[10px] p-3 shadow-2xl text-[10px] flex flex-col justify-between z-10 border border-white/10 hover:scale-[1.05] transition-all cursor-pointer", app.type === "medical" ? "bg-blue-600 text-white" : app.type === "meeting" ? "bg-purple-600 text-white" : "bg-emerald-600 text-white")}>
                             <p className="font-black uppercase tracking-tighter mb-1 leading-tight">{app.title}</p>
                             <div className="flex flex-col gap-0.5">
@@ -220,7 +267,17 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                             </div>
                             <div className="flex items-center gap-1 mt-2 opacity-70 italic"><MapPin size={8} /> {app.location}</div>
                           </motion.div>
-                        ))}
+                        )) : (
+                          <button 
+                            onClick={() => {
+                              setAddPreFill({ date: dayDateStr, hour: hour });
+                              setIsAddModalOpen(true);
+                            }}
+                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity text-primary hover:bg-primary/5"
+                          >
+                            <Plus size={24} className="hover:scale-125 transition-transform" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -248,6 +305,37 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
             meeting={loggingMeeting} 
             onClose={() => setLoggingMeeting(null)} 
           />
+        )}
+        {isAddModalOpen && (
+          <NewAuditForm 
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setAddPreFill(null);
+            }} 
+            initialData={addPreFill || undefined}
+          />
+        )}
+        {editingMeeting && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingMeeting(null)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <div className="relative bg-card border border-border w-full max-w-xl rounded-[10px] shadow-2xl overflow-hidden p-8">
+              <h3 className="text-xl font-black mb-6 uppercase">Update Appointment</h3>
+              <p className="text-sm text-muted-foreground mb-4">Editing: {editingMeeting.title}</p>
+              {/* Simplified edit for now as demonstration of the modal opening */}
+              <div className="space-y-4">
+                <input 
+                  type="text" 
+                  defaultValue={editingMeeting.title} 
+                  className="w-full p-4 bg-secondary/30 border border-border rounded-lg text-sm font-bold"
+                  placeholder="Update Title"
+                />
+                <div className="flex justify-end gap-3 mt-6">
+                   <button onClick={() => setEditingMeeting(null)} className="px-6 py-2 text-[10px] font-black uppercase">Cancel</button>
+                   <button onClick={() => setEditingMeeting(null)} className="px-8 py-2 bg-primary text-white rounded-lg text-[10px] font-black uppercase">Save Changes</button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -112,7 +112,7 @@ for (let i = 1; i <= 20; i++) {
     openingComments: "Representative arrived on site. Clinical team prepared.",
     closingComments: "Audit completed successfully. Minor stock discrepancies noted.",
     requirements: "Need 200 units of Amoxicillin by next Tuesday.",
-    order: i % 4 === 0 ? { medicineId: "m1", qty: 50, total: 2250 } : undefined
+    orders: i % 4 === 0 ? [{ medicineId: "m1", qty: 50, total: 2250 }] : []
   });
 }
 
@@ -142,6 +142,57 @@ for (let i = 1; i <= 15; i++) {
     status: futureStatuses[i % 2],
   });
 }
+
+meetings.push({
+  id: "today-extra-1",
+  title: "Urgent Clinic Audit — Al Zahra",
+  type: "audit",
+  entityName: "Al Zahra Hospital",
+  hospitalName: "Al Zahra Hospital",
+  doctorName: "Dr. Laila Yousif",
+  staffName: "Ayesha Al Suwaidi",
+  contactPerson: "Dr. Laila Yousif",
+  location: "Al Barsha",
+  date: offset(0),
+  hour: "14:00",
+  duration: "1h",
+  description: "Routine check of compounding medicine stocks and emergency requirements.",
+  status: "scheduled"
+});
+
+meetings.push({
+  id: "today-extra-2",
+  title: "New Product Detailing — Mediclinic",
+  type: "medical",
+  entityName: "Mediclinic Dubai Mall",
+  hospitalName: "Mediclinic Dubai Mall",
+  doctorName: "Dr. Robert Smith",
+  staffName: "Faisal Al Marzouqi",
+  contactPerson: "Dr. Robert Smith",
+  location: "Dubai Mall",
+  date: offset(0),
+  hour: "16:30",
+  duration: "1h",
+  description: "Presenting the new RX Compounding range for post-surgical recovery.",
+  status: "upcoming"
+});
+
+meetings.push({
+  id: "today-extra-3",
+  title: "Emergency Sample Delivery — Bur Dubai",
+  type: "medical",
+  entityName: "Bur Dubai Specialized Clinic",
+  hospitalName: "Bur Dubai Specialized Clinic",
+  doctorName: "Dr. Ahmed Al Hammadi",
+  staffName: "Abdulla bin Rashid",
+  contactPerson: "Dr. Ahmed Al Hammadi",
+  location: "Bur Dubai",
+  date: offset(0),
+  hour: "18:00",
+  duration: "30m",
+  description: "Handing over urgent samples for a critical patient case.",
+  status: "scheduled"
+});
 
 export const STAFF_MEETINGS = meetings.sort(
   (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()

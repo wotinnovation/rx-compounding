@@ -31,13 +31,14 @@ import { AppointmentDetailModal } from "./appointment-detail-modal";
 import { NewAuditForm } from "./forms/new-audit-form";
 import { NewFacilityForm } from "./forms/new-facility-form";
 import { NewPatientForm } from "./forms/new-patient-form";
+import { NewDoctorForm } from "./forms/new-doctor-form";
 import { STAFF_UPCOMING, STAFF_MEETINGS } from "@/lib/data/staff-meetings-data";
 
 export function DashboardOverview({ mockUser }: { mockUser?: { name: string, role: string } }) {
   const { user: authUser } = useAuth();
   const { hospitals, reps, doctors, appointments, isLoading } = useData();
 
-  const [activeModal, setActiveModal] = useState<"audit" | "facility" | "patient" | null>(null);
+  const [activeModal, setActiveModal] = useState<"audit" | "facility" | "patient" | "doctor" | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<Appointment | null>(null);
   const [loggingMeeting, setLoggingMeeting] = useState<Appointment | null>(null);
 
@@ -81,10 +82,10 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 dashboard-header">
         <div>
-          <h2 className="text-[9px] font-black uppercase tracking-wider 2xl:tracking-[0.2em] text-primary mb-2 opacity-80 transition-all duration-500">
+          <h2 className="text-[9px] font-black uppercase tracking-wider min-[1400px]:block hidden text-primary mb-2 opacity-80 transition-all duration-500">
             Operations Control Center
           </h2>
-          <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">Command Intelligence</h1>
+          <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">RX Intelligence Hub</h1>
           <p className="text-muted-foreground mt-4 font-medium text-lg max-w-2xl leading-relaxed">
             Welcome back, <span className="text-foreground font-black">{user.name}</span>. You have <span className="text-primary font-bold">{todaysFocus.length - completedToday} priority tasks</span> remaining today.
           </p>
@@ -243,11 +244,6 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
                   <p className="text-sm font-black tracking-tight">Dr. Ahmed Al Hammadi added to professional network</p>
                   <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">1h ago · Dubai Hills Clinic</p>
                 </div>
-                <div className="p-4 bg-secondary/20 rounded-[10px] border border-border/50 group hover:border-primary/30 transition-all cursor-pointer">
-                  <p className="text-[9px] font-black uppercase text-amber-500 mb-1">Inventory Sync</p>
-                  <p className="text-sm font-black tracking-tight">Medicine sample stocks updated in Central Hub</p>
-                  <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">3h ago · Batch #4421</p>
-                </div>
               </div>
 
               <div className="mt-8 pt-8 border-t border-border">
@@ -262,8 +258,8 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
                         <Plus size={20} />
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-black uppercase tracking-tight group-hover:text-white transition-colors">New Audit</p>
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60 transition-colors">Schedule Field Visit</p>
+                        <p className="text-sm font-black uppercase tracking-tight group-hover:text-white transition-colors">Schedule Visit</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60 transition-colors">Logistics Deployment</p>
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground group-hover:text-white transition-colors" />
@@ -278,8 +274,24 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
                         <HospitalIcon size={20} />
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-black uppercase tracking-tight group-hover:text-white transition-colors">Add Facility</p>
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60 transition-colors">Register New Clinic</p>
+                        <p className="text-sm font-black uppercase tracking-tight group-hover:text-white transition-colors">Add Clinic</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60 transition-colors">Register New Facility</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-muted-foreground group-hover:text-white transition-colors" />
+                  </button>
+
+                  <button
+                    onClick={() => setActiveModal("doctor" as any)}
+                    className="w-full flex items-center justify-between p-4 bg-secondary/20 hover:bg-amber-500 border border-border/50 hover:border-amber-500 rounded-[10px] transition-all group/action"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-[10px] bg-amber-500/10 group-hover/action:bg-white/20 flex items-center justify-center text-amber-500 group-hover/action:text-white transition-colors">
+                        <Stethoscope size={20} />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-black uppercase tracking-tight group-hover:text-white transition-colors">Add Doctor</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60 transition-colors">Onboard Professional</p>
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground group-hover:text-white transition-colors" />
@@ -385,6 +397,7 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
         {activeModal === "audit" && <NewAuditForm onClose={() => setActiveModal(null)} />}
         {activeModal === "facility" && <NewFacilityForm onClose={() => setActiveModal(null)} />}
         {activeModal === "patient" && <NewPatientForm onClose={() => setActiveModal(null)} />}
+        {activeModal === "doctor" && <NewDoctorForm onClose={() => setActiveModal(null)} />}
 
         {selectedMeeting && (
           <AppointmentDetailModal

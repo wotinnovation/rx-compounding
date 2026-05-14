@@ -72,9 +72,20 @@ export interface Sale {
   date: string;
   time: string;
   deliveryNeededDate: string;
-  isCompound: boolean;
+  isCompound?: boolean;
   compoundDetails?: string;
   notes?: string;
+}
+
+export interface ExpenseRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  type: "travel" | "meal" | "accommodation" | "other";
+  amount: number;
+  date: string;
+  description: string;
+  status: "pending" | "approved" | "rejected";
 }
 
 export interface Appointment {
@@ -96,8 +107,8 @@ export interface Appointment {
   // Outcome fields
   requirements?: string;
   customCompound?: string;
-  freeSamples?: { medicineId: string, qty: number }[];
-  order?: { medicineId: string, qty: number, total: number };
+  freeSamples?: { medicineId: string, qty: number, approved?: boolean }[];
+  orders?: { medicineId: string, qty: number, total: number }[];
   prescriptionUrl?: string;
   openingComments?: string;
   closingComments?: string;
@@ -111,6 +122,8 @@ interface DataContextType {
   medicines: Medicine[];
   sales: Sale[];
   appointments: Appointment[];
+  expenses: ExpenseRequest[];
+  isLoading: boolean;
   addRep: (rep: Omit<SalesRep, "id" | "initials" | "status" | "pct" | "visits" | "doctorsDetailed" | "totalDoctors">) => void;
   addHospital: (hospital: Omit<Hospital, "id" | "assignedRepId">) => void;
   addDoctor: (doctor: Omit<Doctor, "id">) => void;
@@ -124,7 +137,10 @@ interface DataContextType {
   getDoctorSales: (doctorId: string) => Sale[];
   addAppointment: (app: Omit<Appointment, "id">) => void;
   updateAppointment: (id: string, updates: Partial<Appointment>) => void;
-  isLoading: boolean;
+  addExpense: (expense: Omit<ExpenseRequest, "id" | "status">) => void;
+  updateExpenseStatus: (id: string, status: "approved" | "rejected") => void;
+  updateHospital: (id: string, updates: Partial<Hospital>) => void;
+  deleteHospital: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -137,6 +153,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const initialReps: SalesRep[] = [
@@ -149,6 +166,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     { id: "m1", name: "John Manager", initials: "JM", role: "Manager", zone: "Dubai HQ", status: "online", pct: 0, visits: 0, planned: 0, doctorsDetailed: 0, totalDoctors: 0, targetAmount: 0 },
     { id: "m2", name: "Sarah Al Hashmi", initials: "SH", role: "Manager", zone: "Regional", status: "online", pct: 0, visits: 0, planned: 0, doctorsDetailed: 0, totalDoctors: 0, targetAmount: 0 },
     { id: "m3", name: "Sultan Al Qasimi", initials: "SQ", role: "Manager", zone: "Regional", status: "online", pct: 0, visits: 0, planned: 0, doctorsDetailed: 0, totalDoctors: 0, targetAmount: 0 },
+    { id: "m4", name: "Khalifa Al Mazrouei", initials: "KM", role: "Manager", zone: "Dubai HQ", status: "online", pct: 0, visits: 0, planned: 0, doctorsDetailed: 0, totalDoctors: 0, targetAmount: 0 },
+    { id: "m5", name: "Fatima Al Mansoori", initials: "FM", role: "Manager", zone: "Regional", status: "online", pct: 0, visits: 0, planned: 0, doctorsDetailed: 0, totalDoctors: 0, targetAmount: 0 },
   ];
 
   const generateData = () => {
@@ -316,7 +335,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           duration: "1h",
           description: "Operational field activity log.",
           contactPerson: "Liaison Officer",
-          status: status
+          status: status,
+          staffName: ["Faisal Al Marzouqi", "Abdulla bin Rashid", "Muna Al Falasi", "Saeed Al Tayer", "Ayesha Al Suwaidi", "Omar Al Mansoori"][Math.floor(Math.random() * 6)],
+          hospitalName: entities[Math.floor(Math.random() * entities.length)],
+          doctorName: doctorNames[Math.floor(Math.random() * doctorNames.length)],
+          freeSamples: i === 0 ? [
+            { medicineId: "m1", qty: 5, approved: false },
+            { medicineId: "m2", qty: 2, approved: false }
+          ] : undefined
         });
       }
     }
@@ -325,16 +351,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const storedHospitals = localStorage.getItem("rx_hospitals_v2");
-    const storedDoctors = localStorage.getItem("rx_doctors_v2");
-    const storedPatients = localStorage.getItem("rx_patients_v2");
-    const storedReps = localStorage.getItem("rx_reps_v2");
-    const storedMedicines = localStorage.getItem("rx_medicines_v2");
-    const storedSales = localStorage.getItem("rx_sales_v2");
-    const storedAppointments = localStorage.getItem("rx_appointments_v2");
+    const storedHospitals = localStorage.getItem("rx_hospitals_v5");
+    const storedDoctors = localStorage.getItem("rx_doctors_v5");
+    const storedPatients = localStorage.getItem("rx_patients_v5");
+    const storedReps = localStorage.getItem("rx_reps_v5");
+    const storedMedicines = localStorage.getItem("rx_medicines_v5");
+    const storedSales = localStorage.getItem("rx_sales_v5");
+    const storedAppointments = localStorage.getItem("rx_appointments_v5");
+    const storedExpenses = localStorage.getItem("rx_expenses_v5");
 
-    if (storedReps) setReps(JSON.parse(storedReps));
-    else setReps(initialReps);
+    if (storedReps) {
+      const parsed = JSON.parse(storedReps);
+      // Merge initialReps with stored ones to ensure new dummy data appears
+      const merged = [...parsed];
+      initialReps.forEach(initial => {
+        if (!merged.find(r => r.id === initial.id)) {
+          merged.push(initial);
+        }
+      });
+      setReps(merged);
+    } else {
+      setReps(initialReps);
+    }
 
     let currentMedicines = [];
     const defaultMedicines = [
@@ -384,21 +422,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     if (storedAppointments) setAppointments(JSON.parse(storedAppointments));
     else setAppointments(generateAppointments());
+    
+    if (storedExpenses) {
+      setExpenses(JSON.parse(storedExpenses));
+    } else {
+      setExpenses([
+        { id: "exp-1", staffId: "u2", staffName: "Muna Al Falasi", type: "travel", amount: 250, date: "2026-05-12", description: "Fuel for Al Ain territory visit", status: "approved" },
+        { id: "exp-2", staffId: "u3", staffName: "Abdulla bin Rashid", type: "meal", amount: 85, date: "2026-05-13", description: "Lunch with lead physician at Mediclinic", status: "pending" },
+        { id: "exp-3", staffId: "u4", staffName: "Faisal Al Marzouqi", type: "accommodation", amount: 1200, date: "2026-05-11", description: "Overnight stay for Sharjah health summit", status: "pending" },
+        { id: "exp-4", staffId: "u2", staffName: "Muna Al Falasi", type: "meal", amount: 45, date: "2026-05-14", description: "Client coffee meeting - Jumeirah", status: "pending" },
+        { id: "exp-5", staffId: "u5", staffName: "Saeed Al Tayer", type: "travel", amount: 480, date: "2026-05-10", description: "Monthly vehicle maintenance allowance", status: "approved" },
+        { id: "exp-6", staffId: "u3", staffName: "Abdulla bin Rashid", type: "other", amount: 150, date: "2026-05-12", description: "Clinical brochure printing costs", status: "pending" },
+        { id: "exp-7", staffId: "u6", staffName: "Omar Al Mansoori", type: "travel", amount: 310, date: "2026-05-13", description: "Inter-city travel (Dubai to Abu Dhabi)", status: "pending" },
+      ]);
+    }
 
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
     if (!isLoading) {
-      localStorage.setItem("rx_hospitals_v2", JSON.stringify(hospitals));
-      localStorage.setItem("rx_doctors_v2", JSON.stringify(doctors));
-      localStorage.setItem("rx_patients_v2", JSON.stringify(patients));
-      localStorage.setItem("rx_reps_v2", JSON.stringify(reps));
-      localStorage.setItem("rx_medicines_v2", JSON.stringify(medicines));
-      localStorage.setItem("rx_sales_v2", JSON.stringify(sales));
-      localStorage.setItem("rx_appointments_v2", JSON.stringify(appointments));
+      localStorage.setItem("rx_hospitals_v5", JSON.stringify(hospitals));
+      localStorage.setItem("rx_doctors_v5", JSON.stringify(doctors));
+      localStorage.setItem("rx_patients_v5", JSON.stringify(patients));
+      localStorage.setItem("rx_reps_v4", JSON.stringify(reps));
+      localStorage.setItem("rx_medicines_v5", JSON.stringify(medicines));
+      localStorage.setItem("rx_sales_v5", JSON.stringify(sales));
+      localStorage.setItem("rx_appointments_v5", JSON.stringify(appointments));
+      localStorage.setItem("rx_expenses_v5", JSON.stringify(expenses));
     }
-  }, [hospitals, doctors, patients, reps, medicines, sales, appointments, isLoading]);
+  }, [hospitals, doctors, patients, reps, medicines, sales, appointments, expenses, isLoading]);
 
   const togglePatientStatus = (patientId: string) => {
     setPatients(patients.map(p => p.id === patientId ? { ...p, status: p.status === "active" ? "inactive" : "active" } : p));
@@ -464,15 +517,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateAppointment = (id: string, updates: Partial<Appointment>) => {
-    setAppointments(appointments.map(a => a.id === id ? { ...a, ...updates } : a));
+    setAppointments(appointments.map(app => app.id === id ? { ...app, ...updates } : app));
+  };
+
+  const addExpense = (expense: Omit<ExpenseRequest, "id" | "status">) => {
+    const newExpense: ExpenseRequest = {
+      ...expense,
+      id: `exp-${Math.random().toString(36).substr(2, 9)}`,
+      status: "pending"
+    };
+    setExpenses([...expenses, newExpense]);
+  };
+
+  const updateExpenseStatus = (id: string, status: "approved" | "rejected") => {
+    setExpenses(expenses.map(exp => exp.id === id ? { ...exp, status } : exp));
+  };
+
+  const updateHospital = (id: string, updates: Partial<Hospital>) => {
+    setHospitals(hospitals.map(h => h.id === id ? { ...h, ...updates } : h));
+  };
+
+  const deleteHospital = (id: string) => {
+    setHospitals(hospitals.filter(h => h.id !== id));
   };
 
   return (
     <DataContext.Provider value={{
-      hospitals, doctors, patients, reps, medicines, sales, appointments,
+      hospitals, doctors, patients, reps, medicines, sales, appointments, expenses,
       addRep, addHospital, addDoctor, assignHospital, addSale, addPatient, togglePatientStatus,
       getRepSales, getHospitalDoctors, getHospitalPatients, getDoctorSales,
-      addAppointment, updateAppointment, isLoading
+      addAppointment, updateAppointment, updateHospital, deleteHospital,
+      addExpense, updateExpenseStatus, isLoading
     }}>
       {children}
     </DataContext.Provider>

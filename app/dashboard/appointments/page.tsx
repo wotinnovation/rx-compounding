@@ -86,7 +86,7 @@ export default function AppointmentsPage() {
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80 min-[1400px]:block hidden">
             Logistical Intelligence
           </h2>
           <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">Itinerary Control</h1>

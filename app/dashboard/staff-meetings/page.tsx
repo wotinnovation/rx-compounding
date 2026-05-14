@@ -109,7 +109,7 @@ export default function StaffMeetingsPage() {
       {/* ── Page Header ────────────────────────────────────────── */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 sticky top-0 z-40 bg-background/90 backdrop-blur-xl py-5 -mx-4 px-4 border-b border-border/50">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80">Operational Intelligence</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80">Operational Hub</p>
           <h1 className="text-4xl lg:text-5xl font-black tracking-tighter">Staff Meetings</h1>
           <p className="text-muted-foreground mt-2 text-base font-medium">All team meetings, field visits, and coordination sessions.</p>
         </div>

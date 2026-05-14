@@ -12,10 +12,15 @@ import {
   Building2, 
   User, 
   Calendar,
-  Filter
+  Filter,
+  Clock,
+  TrendingDown,
+  AlertCircle,
+  BarChart4
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/context/auth-context";
+import { useData } from "@/lib/context/data-context";
 import { cn } from "@/lib/utils";
 import { FREE_SAMPLES_DATA, FreeSample } from "@/lib/data/free-samples-data";
 
@@ -30,6 +35,7 @@ const sampleInventory = [
 export default function FreeMedicinePage() {
   const { user } = useAuth();
   const isManager = user?.role === "Manager";
+  const { reps, appointments, medicines, updateAppointment } = useData();
   
   const [activeTab, setActiveTab] = useState<"provision" | "history">(isManager ? "history" : "provision");
   const [selectedMed, setSelectedMed] = useState<number | null>(null);
@@ -38,10 +44,38 @@ export default function FreeMedicinePage() {
   const [isSent, setIsSent] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredHistory = useMemo(() => {
-    let base = FREE_SAMPLES_DATA;
+  const combinedHistory = useMemo(() => {
+    // Static data
+    const staticData = [...FREE_SAMPLES_DATA].map(item => ({ ...item, source: 'static' as const }));
+
+    // Real data from appointments
+    const realData = appointments.flatMap(app => 
+      (app.freeSamples || []).map((s, idx) => ({
+        id: `${app.id}-${idx}`,
+        appId: app.id,
+        staffName: app.staffName || "Unknown",
+        medicineName: medicines.find(m => m.id === s.medicineId)?.name || "Unknown",
+        hospitalName: app.hospitalName || app.entityName,
+        doctorName: app.doctorName || "Unknown",
+        quantity: s.qty,
+        date: app.date,
+        status: (s.approved ? "Confirmed" : "Waiting for Approval") as any,
+        source: 'real' as const
+      }))
+    );
+
+    let base = [...realData, ...staticData].map(item => {
+      if ((item as any).source === 'static') {
+        return {
+          ...item,
+          status: (item.status === "delivered" ? "Confirmed" : "Waiting for Approval") as any
+        };
+      }
+      return item;
+    });
+
     if (!isManager) {
-      base = base.filter(s => s.staffName === user?.name || s.staffName === "Priya Nair"); // Mocking staff match
+      base = base.filter(s => s.staffName === user?.name || s.staffName === "Priya Nair");
     }
     
     if (searchQuery) {
@@ -54,7 +88,14 @@ export default function FreeMedicinePage() {
       );
     }
     return base;
-  }, [isManager, user, searchQuery]);
+  }, [isManager, user, searchQuery, reps, appointments, medicines]);
+
+  const handleApprove = (appId: string) => {
+    const app = appointments.find(a => a.id === appId);
+    if (!app || !app.freeSamples) return;
+    const updatedSamples = app.freeSamples.map(s => ({ ...s, approved: true }));
+    updateAppointment(appId, { freeSamples: updatedSamples });
+  };
 
   const handleProvide = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +117,7 @@ export default function FreeMedicinePage() {
     <div className="space-y-12 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 dashboard-header">
         <div>
-          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80 min-[1400px]:block hidden">
             Resource Deployment
           </h2>
           <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">Free Provisions</h1>
@@ -103,6 +144,131 @@ export default function FreeMedicinePage() {
           </button>
         </div>
       </header>
+
+      {/* Deployment Analytics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-card border border-border rounded-[10px] p-6 shadow-sm group">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-[10px] bg-primary/10 flex items-center justify-center text-primary"><Package size={20} /></div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Dispatched</p>
+          </div>
+          <h3 className="text-3xl font-black tabular-nums">{combinedHistory.reduce((acc, curr) => acc + curr.quantity, 0)} Units</h3>
+          <p className="text-[9px] font-bold text-emerald-500 mt-1 uppercase">+14% vs last week</p>
+        </div>
+        <div className="bg-card border border-border rounded-[10px] p-6 shadow-sm group">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-[10px] bg-amber-500/10 flex items-center justify-center text-amber-600"><Clock size={20} /></div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pending Audit</p>
+          </div>
+          <h3 className="text-3xl font-black tabular-nums">{combinedHistory.filter(h => h.status === "Waiting for Approval").length} Logs</h3>
+          <p className="text-[9px] font-bold text-amber-500 mt-1 uppercase">Attention Required</p>
+        </div>
+        <div className="bg-card border border-border rounded-[10px] p-6 shadow-sm group">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-[10px] bg-blue-500/10 flex items-center justify-center text-blue-600"><TrendingDown size={20} /></div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Stock Reserves</p>
+          </div>
+          <h3 className="text-3xl font-black tabular-nums">{sampleInventory.reduce((acc, curr) => acc + curr.stock, 0)} Units</h3>
+          <p className="text-[9px] font-bold text-blue-500 mt-1 uppercase">Across 5 categories</p>
+        </div>
+        <div className="bg-card border border-border rounded-[10px] p-6 shadow-sm group">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-[10px] bg-indigo-500/10 flex items-center justify-center text-indigo-600"><BarChart4 size={20} /></div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Highest Impact</p>
+          </div>
+          <h3 className="text-xl font-black uppercase truncate">Amoxicillin 500mg</h3>
+          <p className="text-[9px] font-bold text-indigo-500 mt-1 uppercase">Top deployed asset</p>
+        </div>
+      </div>
+      
+      {/* Inventory Depletion Audit */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="lg:col-span-8 bg-card border border-border rounded-[10px] p-10 card-shadow relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-primary/10 transition-colors" />
+          <div className="flex items-center justify-between mb-10 relative z-10">
+            <div>
+              <h3 className="text-2xl font-black tracking-tight">Inventory Depletion Audit</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1">Live stock monitoring across all clinical assets</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Audit Status</p>
+              <span className="bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase border border-emerald-500/20">Operational</span>
+            </div>
+          </div>
+
+          <div className="space-y-8 relative z-10">
+            {sampleInventory.map((item) => {
+              const distributed = combinedHistory.filter(s => s.medicineName === item.name).reduce((acc, s) => acc + s.quantity, 0);
+              const total = item.stock + distributed;
+              const pct = (distributed / total) * 100;
+              return (
+                <div key={item.id} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-tight">{item.name}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{item.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black tabular-nums">{item.stock} <span className="text-[10px] text-muted-foreground">/ {total} Units</span></p>
+                      <p className="text-[9px] font-black uppercase text-primary">{distributed} Dispatched</p>
+                    </div>
+                  </div>
+                  <div className="h-2.5 bg-secondary/50 rounded-full overflow-hidden border border-border shadow-inner">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${100 - pct}%` }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      className={cn(
+                        "h-full rounded-full shadow-lg",
+                        (100 - pct) < 20 ? "bg-rose-500 shadow-rose-500/30" : 
+                        (100 - pct) < 50 ? "bg-amber-500 shadow-amber-500/30" : 
+                        "bg-emerald-500 shadow-emerald-500/30"
+                      )}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="flex-1 bg-indigo-600 rounded-[10px] p-8 text-white shadow-2xl shadow-indigo-600/30 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700">
+              <BarChart4 size={120} />
+            </div>
+            <h3 className="text-xl font-black mb-2">Regional Balance</h3>
+            <p className="text-xs text-indigo-100 uppercase font-black tracking-widest mb-6 opacity-80">Territory Distribution Audit</p>
+            <div className="space-y-4 relative z-10">
+              {[
+                { label: "Deira Hub", pct: 45 },
+                { label: "Jumeirah District", pct: 28 },
+                { label: "Sharjah Sector", pct: 15 },
+                { label: "Other Regions", pct: 12 }
+              ].map((region) => (
+                <div key={region.label} className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-black uppercase">
+                    <span>{region.label}</span>
+                    <span>{region.pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ width: `${region.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="p-8 bg-card border border-border rounded-[10px] shadow-sm relative group overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="text-amber-500" size={20} />
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Critical Threshold</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed italic">"3 items have dropped below the 30% reserve threshold. Immediate replenishment audit recommended for Deira territory."</p>
+          </div>
+        </div>
+      </div>
 
       <AnimatePresence mode="wait">
         {activeTab === "provision" ? (
@@ -252,11 +418,12 @@ export default function FreeMedicinePage() {
                       <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Resource / Medicine</th>
                       <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Medical Facility</th>
                       {isManager && <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Staff</th>}
+                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Status</th>
                       <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Volume</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {filteredHistory.map((sample, i) => (
+                    {combinedHistory.map((sample, i) => (
                       <motion.tr 
                         key={sample.id} 
                         initial={{ opacity: 0, x: -10 }} 
@@ -294,6 +461,24 @@ export default function FreeMedicinePage() {
                             </div>
                           </td>
                         )}
+                        <td className="px-8 py-6 text-center">
+                          {sample.status === "Waiting for Approval" && isManager && (sample as any).source === 'real' ? (
+                            <button 
+                              onClick={() => handleApprove((sample as any).appId)}
+                              className="px-4 py-2 bg-emerald-500 text-white rounded-[10px] text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all"
+                            >
+                              Approve Now
+                            </button>
+                          ) : (
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase",
+                              sample.status === "Confirmed" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                            )}>
+                              {sample.status === "Confirmed" ? <Check size={12} /> : <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+                              {sample.status}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-8 py-6 text-right">
                           <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                             {sample.quantity} Units

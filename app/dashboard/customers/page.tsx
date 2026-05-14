@@ -12,16 +12,21 @@ import {
   TrendingUp,
   Activity,
   PlusCircle,
-  X
+  X,
+  Edit3,
+  Trash2
 } from "lucide-react";
-import { useData } from "@/lib/context/data-context";
+import { useData, Hospital } from "@/lib/context/data-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { UnifiedAddForm } from "@/components/forms/unified-add-form";
 
 export default function CustomerAssignmentPage() {
-  const { hospitals, reps, assignHospital, sales } = useData();
+  const { hospitals, reps, assignHospital, sales, deleteHospital } = useData();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [activeTab, setActiveTab] = React.useState<"all" | "unassigned" | "assigned">("all");
+  const [isUnifiedModalOpen, setIsUnifiedModalOpen] = React.useState(false);
+  const [editingHospital, setEditingHospital] = React.useState<Hospital | null>(null);
 
   const unassignedCount = hospitals.filter(h => !h.assignedRepId).length;
 
@@ -85,11 +90,20 @@ export default function CustomerAssignmentPage() {
               className="bg-card border border-border rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-1 focus:ring-primary w-64 transition-all"
             />
           </div>
-          <button className="p-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.05] transition-all flex items-center gap-2 font-bold">
-            <PlusCircle size={18} /> New Facility
+          <button 
+            onClick={() => setIsUnifiedModalOpen(true)}
+            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.05] transition-all flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"
+          >
+            <PlusCircle size={18} /> Add
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isUnifiedModalOpen && (
+          <UnifiedAddForm onClose={() => setIsUnifiedModalOpen(false)} />
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Assignment Console */}
@@ -101,7 +115,8 @@ export default function CustomerAssignmentPage() {
                   <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Facility Information</th>
                   <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Network Statistics</th>
                   <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Priority</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Assigned Representative</th>
+                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Representative</th>
+                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -152,24 +167,41 @@ export default function CustomerAssignmentPage() {
                           {hospital.priority}
                         </span>
                       </td>
-                      <td className="p-6 text-right">
-                        <div className="inline-flex flex-col items-end gap-2">
+                      <td className="p-6 text-center">
+                        <div className="inline-flex flex-col items-center gap-2">
                           <select 
                             value={hospital.assignedRepId || ""}
                             onChange={(e) => assignHospital(hospital.id, e.target.value || null)}
-                            className="bg-secondary/50 border border-border rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all cursor-pointer hover:bg-secondary min-w-[200px]"
+                            className="bg-secondary/50 border border-border rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all cursor-pointer hover:bg-secondary min-w-[160px]"
                           >
                             <option value="">Unassigned</option>
                             {reps.map(rep => (
-                              <option key={rep.id} value={rep.id}>{rep.name} ({rep.zone})</option>
+                              <option key={rep.id} value={rep.id}>{rep.name}</option>
                             ))}
                           </select>
-                          {assignedRep && (
-                            <div className="flex items-center gap-2 mr-1">
-                              <UserCheck size={12} className="text-emerald-500" />
-                              <span className="text-[10px] font-black uppercase text-emerald-600">Active Ownership</span>
-                            </div>
-                          )}
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => {
+                              // We'll just open the add clinic tab for now as "Edit"
+                              setIsUnifiedModalOpen(true);
+                            }}
+                            className="w-10 h-10 bg-secondary/50 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-all shadow-sm"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete ${hospital.name}?`)) {
+                                deleteHospital(hospital.id);
+                              }
+                            }}
+                            className="w-10 h-10 bg-secondary/50 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>

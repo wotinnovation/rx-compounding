@@ -33,7 +33,7 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
     requirements: meeting.requirements || "",
     customCompound: meeting.customCompound || "",
     freeSamples: meeting.freeSamples || [],
-    order: meeting.order || { medicineId: "", qty: 0, total: 0 },
+    orders: meeting.orders || [],
     closingComments: meeting.closingComments || "",
     status: meeting.status || "completed"
   });
@@ -67,9 +67,16 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
     setReportData({ ...reportData, freeSamples: newSamples });
   };
 
-  const updateOrder = (field: string, value: any) => {
-    const currentOrder = reportData.order || { medicineId: "", qty: 0, total: 0 };
-    const updatedOrder = { ...currentOrder, [field]: value };
+  const addOrder = (medicineId: string) => {
+    const med = medicines.find(m => m.id === medicineId);
+    if (!med) return;
+    const newOrders = [...(reportData.orders || []), { medicineId, qty: 1, total: med.price }];
+    setReportData({ ...reportData, orders: newOrders });
+  };
+
+  const updateOrder = (index: number, field: string, value: any) => {
+    const newOrders = [...(reportData.orders || [])];
+    const updatedOrder = { ...newOrders[index], [field]: value };
     
     if (field === "medicineId" || field === "qty") {
       const med = medicines.find(m => m.id === updatedOrder.medicineId);
@@ -78,7 +85,13 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
       }
     }
     
-    setReportData({ ...reportData, order: updatedOrder });
+    newOrders[index] = updatedOrder;
+    setReportData({ ...reportData, orders: newOrders });
+  };
+
+  const removeOrder = (index: number) => {
+    const newOrders = [...(reportData.orders || [])].filter((_, i) => i !== index);
+    setReportData({ ...reportData, orders: newOrders });
   };
 
   return (
@@ -122,8 +135,13 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
               >
                 <option value="">No Accompaniment</option>
                 <optgroup label="Field Staff">
-                  {reps.map(r => (
+                  {reps.filter(r => r.role.toLowerCase() !== "manager").map(r => (
                     <option key={r.id} value={r.id}>{r.name} ({r.role})</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Management">
+                  {reps.filter(r => r.role.toLowerCase() === "manager").map(r => (
+                    <option key={r.id} value={r.id}>{r.name} (Sales Manager)</option>
                   ))}
                 </optgroup>
               </select>
@@ -203,7 +221,7 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
                   <select 
                     onChange={(e) => {
                       if (e.target.value) {
-                        const newSamples = [...(reportData.freeSamples || []), { medicineId: e.target.value, qty: 1 }];
+                        const newSamples = [...(reportData.freeSamples || []), { medicineId: e.target.value, qty: 1, approved: false }];
                         setReportData({ ...reportData, freeSamples: newSamples });
                         e.target.value = ""; 
                       }
@@ -229,13 +247,25 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => updateFreeSample(idx, "approved", !sample.approved)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all",
+                              sample.approved 
+                                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
+                                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                            )}
+                          >
+                            {sample.approved ? <CheckCircle2 size={12} /> : <div className="w-3 h-3 rounded-full border-2 border-current opacity-30" />}
+                            {sample.approved ? "Approved" : "Pending"}
+                          </button>
                           <input 
                             type="number" 
                             value={sample.qty}
                             onChange={(e) => updateFreeSample(idx, "qty", parseInt(e.target.value) || 1)}
-                            className="w-10 bg-white border border-border rounded-lg text-center font-black text-[10px] py-1"
+                            className="w-10 bg-white border border-border rounded-lg text-center font-black text-[10px] py-1.5"
                           />
-                          <button onClick={() => removeFreeSample(idx)} className="text-rose-500 hover:text-rose-600 transition-colors">
+                          <button onClick={() => removeFreeSample(idx)} className="text-rose-500 hover:text-rose-600 transition-colors p-1">
                             <X size={14} />
                           </button>
                         </div>
@@ -250,35 +280,76 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
                 </div>
               </section>
 
-              {/* Order Section */}
               <section className="space-y-4 p-6 bg-blue-500/5 border border-blue-500/10 rounded-[10px]">
-                <div className="flex items-center gap-2 text-blue-600 mb-2">
-                  <ShoppingCart size={16} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Direct Sale Order</span>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <ShoppingCart size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Direct Sale Order</span>
+                  </div>
                   <select 
-                    value={reportData.order?.medicineId}
-                    onChange={(e) => updateOrder("medicineId", e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-border rounded-lg font-bold text-[11px] outline-none focus:ring-1 focus:ring-blue-500"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addOrder(e.target.value);
+                        e.target.value = ""; 
+                      }
+                    }}
+                    className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-1.5 text-[10px] font-bold text-blue-700 outline-none cursor-pointer hover:bg-blue-500/20 transition-colors"
                   >
-                    <option value="">Select Primary Product...</option>
+                    <option value="">Add Product...</option>
                     {medicines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
-                  <div className="flex gap-3">
-                    <input 
-                      type="number" 
-                      placeholder="Qty"
-                      value={reportData.order?.qty}
-                      onChange={(e) => updateOrder("qty", parseInt(e.target.value) || 0)}
-                      className="flex-1 px-4 py-3 bg-white border border-border rounded-lg font-bold text-[11px] outline-none focus:ring-1 focus:ring-blue-500 text-center"
-                    />
-                    <div className="flex-[2] flex items-center justify-between px-4 py-3 bg-blue-600 text-white rounded-lg font-black text-[11px]">
-                      <span className="uppercase opacity-70">Total:</span>
-                      <span>AED {(reportData.order?.total || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
                 </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {reportData.orders?.map((order, idx) => {
+                    const med = medicines.find(m => m.id === order.medicineId);
+                    return (
+                      <div key={idx} className="space-y-2 p-4 bg-white dark:bg-slate-900 border border-blue-500/10 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
+                              <ShoppingCart size={14} />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-tight">{med?.name}</p>
+                              <p className="text-[8px] font-bold text-muted-foreground uppercase">AED {med?.price} / unit</p>
+                            </div>
+                          </div>
+                          <button onClick={() => removeOrder(idx)} className="text-rose-500 hover:text-rose-600 transition-colors">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="flex gap-3 mt-2">
+                          <input 
+                            type="number" 
+                            placeholder="Qty"
+                            value={order.qty}
+                            onChange={(e) => updateOrder(idx, "qty", parseInt(e.target.value) || 0)}
+                            className="w-20 px-3 py-2 bg-secondary/30 border border-border rounded-lg font-bold text-[11px] outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                          />
+                          <div className="flex-1 flex items-center justify-between px-4 py-2 bg-blue-600 text-white rounded-lg font-black text-[11px]">
+                            <span className="uppercase opacity-70">Total:</span>
+                            <span>AED {(order.total || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(!reportData.orders || reportData.orders.length === 0) && (
+                    <div className="py-8 text-center border-2 border-dashed border-blue-500/10 rounded-xl">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">No products ordered</p>
+                    </div>
+                  )}
+                </div>
+
+                {reportData.orders && reportData.orders.length > 0 && (
+                  <div className="pt-4 border-t border-blue-500/10 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground">Grand Total</span>
+                    <span className="text-lg font-black text-blue-600">
+                      AED {reportData.orders.reduce((sum, o) => sum + (o.total || 0), 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </section>
 
               <section className="space-y-4">

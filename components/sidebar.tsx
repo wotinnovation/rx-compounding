@@ -16,14 +16,20 @@ import {
   X,
   Stethoscope,
   MapPin,
-  ClipboardList
+  ClipboardList,
+  PlusCircle,
+  UserPlus,
+  Hospital,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
+import { UnifiedAddForm } from "./forms/unified-add-form";
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
+  const [activeModal, setActiveModal] = useState<"clinic" | "doctor" | "staff" | null>(null);
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
@@ -44,6 +50,7 @@ export function Sidebar() {
     { icon: BarChart3, label: "Sales View", href: "/dashboard/sales" },
     { icon: CheckCircle2, label: "Closed Items", href: "/dashboard/closed" },
     { icon: Gift, label: "Free Medicine", href: "/dashboard/free-medicine" },
+    { icon: Receipt, label: "Approvals & Expenses", href: "/dashboard/approvals" },
   ];
 
   return (
@@ -93,7 +100,7 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-[10px] transition-all duration-200 group relative",
+                  "flex items-center gap-3 px-4 py-2 rounded-[10px] transition-all duration-200 group relative",
                   isActive 
                     ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -121,6 +128,39 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Manager Quick Actions */}
+        {isManager && (
+          <div className="px-4 py-4 space-y-2 border-t border-border">
+            <AnimatePresence>
+              {isOpen ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2 mb-2">Resource Center</p>
+                  <button 
+                    onClick={() => setActiveModal("clinic")}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 hover:bg-primary/10 rounded-[10px] transition-all border border-primary/20 shadow-sm"
+                  >
+                    <PlusCircle size={18} /> Quick Onboard
+                  </button>
+                </motion.div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <button 
+                    onClick={() => setActiveModal("clinic")} 
+                    className="p-3 text-primary bg-primary/5 hover:bg-primary/10 rounded-[10px] border border-primary/20"
+                    title="Quick Onboard"
+                  >
+                    <PlusCircle size={20} />
+                  </button>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         {/* User Profile & Logout */}
         <div className="p-4 border-t border-border mt-auto">
@@ -164,6 +204,15 @@ export function Sidebar() {
         className="hidden lg:block transition-all duration-300 ease-in-out" 
         style={{ width: isOpen ? "var(--sidebar-width)" : "var(--sidebar-collapsed-width)" }}
       />
+
+      <AnimatePresence>
+        {activeModal && (
+          <UnifiedAddForm 
+            initialTab={activeModal as any} 
+            onClose={() => setActiveModal(null)} 
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

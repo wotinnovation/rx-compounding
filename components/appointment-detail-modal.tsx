@@ -3,7 +3,8 @@
 import React from "react";
 import { X, Clock, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
-import { Appointment } from "@/lib/context/data-context";
+import { Appointment, useData } from "@/lib/context/data-context";
+import { cn } from "@/lib/utils";
 
 interface AppointmentDetailModalProps {
   meeting: Appointment;
@@ -13,6 +14,7 @@ interface AppointmentDetailModalProps {
 }
 
 export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: AppointmentDetailModalProps) {
+  const { medicines } = useData();
   const isStaff = role === "Staff";
   const canLog = isStaff && (meeting.status === "scheduled" || meeting.status === "upcoming");
 
@@ -41,9 +43,9 @@ export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: A
       >
         <div className="p-10 bg-primary text-primary-foreground relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
-          <button type="button" onClick={onClose} className="absolute top-8 right-8 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 z-10 transition-colors"><X size={20} /></button>
+          <button type="button" onClick={onClose} className="absolute top-8 right-8 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 z-50 transition-colors"><X size={20} /></button>
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Audit Intelligence</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Audit Hub</p>
             <h3 className="text-3xl font-black tracking-tighter">{meeting.title}</h3>
             <div className="flex items-center gap-4 mt-4">
                <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-[9px] font-black uppercase"><Clock size={12} /> {meeting.hour}</div>
@@ -107,7 +109,7 @@ export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: A
                 </div>
               )}
               
-              {(meeting.requirements || meeting.order) && (
+              {(meeting.requirements || (meeting.orders && meeting.orders.length > 0)) && (
                 <div className="p-6 bg-emerald-500/5 rounded-[10px] border border-emerald-500/20">
                   <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-emerald-600">Operational Outcome</p>
                   {meeting.requirements && (
@@ -116,15 +118,53 @@ export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: A
                       <p className="text-sm font-black">{meeting.requirements}</p>
                     </div>
                   )}
-                  {meeting.order && (
-                    <div className="p-4 bg-white/50 dark:bg-black/20 rounded-[10px] border border-emerald-500/10">
-                      <p className="text-[8px] font-black uppercase text-emerald-600 opacity-60 mb-2">Order Generation</p>
-                      <div className="flex justify-between items-center">
-                        <p className="text-xs font-black">Ref: {meeting.order.medicineId}</p>
-                        <p className="text-sm font-black text-emerald-600">{meeting.order.total.toLocaleString()} AED</p>
+                  {meeting.orders && meeting.orders.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[8px] font-black uppercase text-emerald-600 opacity-60 mb-1">Direct Sale Orders</p>
+                      {meeting.orders.map((o, idx) => {
+                        const med = medicines.find(m => m.id === o.medicineId);
+                        return (
+                          <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 rounded-[10px] border border-emerald-500/10 flex justify-between items-center">
+                            <p className="text-xs font-black">{med?.name || o.medicineId} (x{o.qty})</p>
+                            <p className="text-sm font-black text-emerald-600">{o.total.toLocaleString()} AED</p>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 mt-2 border-t border-emerald-500/10 flex justify-between items-center">
+                        <p className="text-[9px] font-black uppercase text-emerald-600">Total Revenue</p>
+                        <p className="text-base font-black text-emerald-600">
+                          {meeting.orders.reduce((sum, o) => sum + o.total, 0).toLocaleString()} AED
+                        </p>
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {meeting.freeSamples && meeting.freeSamples.length > 0 && (
+                <div className="p-6 bg-blue-500/5 rounded-[10px] border border-blue-500/20">
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-blue-600">Sample Allocation</p>
+                  <div className="space-y-2">
+                    {meeting.freeSamples.map((s, idx) => {
+                      const med = medicines.find(m => m.id === s.medicineId);
+                      return (
+                        <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 rounded-[10px] border border-blue-500/10 flex justify-between items-center">
+                          <div>
+                            <p className="text-xs font-black">{med?.name || s.medicineId} (x{s.qty})</p>
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase">{med?.category}</p>
+                          </div>
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border",
+                            s.approved 
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                              : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                          )}>
+                            {s.approved ? "Approved" : "Pending Approval"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

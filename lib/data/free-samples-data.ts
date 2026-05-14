@@ -12,7 +12,7 @@ export interface FreeSample {
 export const FREE_SAMPLES_DATA: FreeSample[] = [
   {
     id: "fs-1",
-    staffName: "Priya Nair",
+    staffName: "Muna Al Falasi",
     medicineName: "Amoxicillin 500mg",
     hospitalName: "Bur Dubai Hospital",
     doctorName: "Dr. Ahmed Mahmoud",
@@ -22,7 +22,7 @@ export const FREE_SAMPLES_DATA: FreeSample[] = [
   },
   {
     id: "fs-2",
-    staffName: "Priya Nair",
+    staffName: "Muna Al Falasi",
     medicineName: "Lipitor 20mg",
     hospitalName: "Al Mankhool Medical Centre",
     doctorName: "Dr. Sarah Khan",
@@ -32,7 +32,7 @@ export const FREE_SAMPLES_DATA: FreeSample[] = [
   },
   {
     id: "fs-3",
-    staffName: "Ahmed Mahmoud",
+    staffName: "Abdulla bin Rashid",
     medicineName: "Ventolin Inhaler",
     hospitalName: "City Heart Hospital",
     doctorName: "Dr. Ravi Nair",
@@ -52,7 +52,7 @@ export const FREE_SAMPLES_DATA: FreeSample[] = [
   },
   {
     id: "fs-5",
-    staffName: "Joseph Pereira",
+    staffName: "Omar Al Mansoori",
     medicineName: "Metformin 500mg",
     hospitalName: "Dubai Hills Specialized Hospital",
     doctorName: "Dr. Fatima Menon",
@@ -62,7 +62,7 @@ export const FREE_SAMPLES_DATA: FreeSample[] = [
   },
   {
     id: "fs-6",
-    staffName: "Priya Nair",
+    staffName: "Muna Al Falasi",
     medicineName: "Augmentin 625mg",
     hospitalName: "Deira Specialized Clinic",
     doctorName: "Dr. Khalid Hassan",
@@ -72,7 +72,7 @@ export const FREE_SAMPLES_DATA: FreeSample[] = [
   },
   {
     id: "fs-7",
-    staffName: "Ahmed Mahmoud",
+    staffName: "Abdulla bin Rashid",
     medicineName: "Lipitor 20mg",
     hospitalName: "Karama Medical Hub",
     doctorName: "Dr. Maryam Saif",
