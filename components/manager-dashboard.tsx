@@ -315,8 +315,8 @@ export function ManagerDashboard() {
           <GiftDetailModal 
             item={selectedGift}
             onClose={() => setSelectedGift(null)}
-            onApprove={updateGiftMeetupStatus}
-            onReject={updateGiftMeetupStatus}
+            onApprove={(id, comment) => updateGiftMeetupStatus(id, "approved", comment)}
+            onReject={(id, comment) => updateGiftMeetupStatus(id, "rejected", comment)}
           />
         )}
       </AnimatePresence>
