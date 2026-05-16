@@ -194,6 +194,106 @@ meetings.push({
   status: "scheduled"
 });
 
+// ── Dense May Data (Robust Density for Manager View) ─────────────────────
+for (let i = 1; i <= 60; i++) {
+  const hospital = hospitalNames[(i + 3) % hospitalNames.length];
+  const doctor = doctorNames[(i + 5) % doctorNames.length];
+  const patient = patientNames[(i + 7) % patientNames.length];
+  const staff = staffNames[i % staffNames.length];
+  
+  // Distribute across -15 to +15 days from today
+  const dayOffset = (i % 31) - 15; 
+  
+  meetings.push({
+    id: `sm-may-dense-${i}`,
+    title: meetingTitles[(i + 1) % meetingTitles.length],
+    type: i % 4 === 0 ? "audit" : i % 3 === 0 ? "meeting" : "medical",
+    entityName: i % 2 === 0 ? hospital : doctor,
+    hospitalName: hospital,
+    doctorName: doctor,
+    patientName: patient,
+    staffName: staff,
+    location: hospital,
+    date: offset(dayOffset),
+    hour: `${8 + (i % 10)}:00`,
+    duration: i % 2 === 0 ? "1h" : "45m",
+    description: descriptions[i % descriptions.length],
+    contactPerson: doctor,
+    status: ["scheduled", "visited", "pending_approval", "completed", "cancelled"][i % 5] as any,
+    openingComments: dayOffset < 0 ? "Routine clinical discussion started." : undefined,
+    closingComments: dayOffset < 0 ? "Confirmed product availability. Logged required follow-ups." : undefined,
+  });
+}
+
+// ── Concentrated Data for Faisal Al Marzouqi ─────────────────────────────
+for (let i = 1; i <= 30; i++) {
+  const hospital = hospitalNames[(i + 2) % hospitalNames.length];
+  const doctor = doctorNames[(i + 4) % doctorNames.length];
+  const patient = patientNames[(i + 6) % patientNames.length];
+  
+  // Concentrated within the last 10 days and next 2 days
+  const dayOffset = (i % 12) - 10; 
+  
+  meetings.push({
+    id: `sm-faisal-dense-${i}`,
+    title: meetingTitles[(i + 3) % meetingTitles.length],
+    type: i % 2 === 0 ? "medical" : "audit",
+    entityName: i % 2 === 0 ? hospital : doctor,
+    hospitalName: hospital,
+    doctorName: doctor,
+    patientName: patient,
+    staffName: "Faisal Al Marzouqi",
+    location: hospital,
+    date: offset(dayOffset),
+    hour: `${8 + (i % 9)}:30`,
+    duration: "1h",
+    description: descriptions[(i + 2) % descriptions.length],
+    contactPerson: doctor,
+    status: ["scheduled", "visited", "pending_approval", "completed", "cancelled"][i % 5] as any,
+    openingComments: dayOffset < 0 ? "Faisal arrived on site. High engagement." : undefined,
+    closingComments: dayOffset < 0 ? "Successfully pushed new inventory line. Follow-up required." : undefined,
+    requirements: dayOffset < 0 && i % 3 === 0 ? "Urgent need for 500 units of custom compounded pediatric suspension." : undefined,
+    customCompound: dayOffset < 0 && i % 4 === 0 ? "Omeprazole 2mg/mL Oral Suspension, 100mL bottles." : undefined,
+    freeSamples: dayOffset < 0 && i % 2 === 0 ? [
+      { medicineId: `m${(i % 5) + 1}`, qty: 10 + (i % 20), approved: true },
+      { medicineId: `m${((i + 1) % 5) + 1}`, qty: 5 + (i % 10), approved: i % 4 !== 0 }
+    ] : undefined,
+    orders: dayOffset < 0 && i % 3 === 0 ? [
+      { medicineId: `m${(i % 5) + 1}`, qty: 100 * (i % 5 + 1), total: 4500 * (i % 3 + 1) }
+    ] : undefined,
+    managerComment: dayOffset < 0 && i % 5 === 0 ? "Great job locking in this engagement. Ensure samples are replenished." : undefined
+  });
+}
+
+// ── Upcoming Week Density Surge ──────────────────────────────────────────
+for (let i = 1; i <= 40; i++) {
+  const hospital = hospitalNames[(i + 5) % hospitalNames.length];
+  const doctor = doctorNames[(i + 1) % doctorNames.length];
+  const patient = patientNames[(i + 3) % patientNames.length];
+  const staff = staffNames[i % staffNames.length];
+  
+  // Strictly target the next 1 to 10 days
+  const dayOffset = (i % 10) + 1; 
+  
+  meetings.push({
+    id: `sm-future-surge-${i}`,
+    title: meetingTitles[(i + 4) % meetingTitles.length],
+    type: i % 2 === 0 ? "meeting" : "medical",
+    entityName: i % 2 === 0 ? hospital : doctor,
+    hospitalName: hospital,
+    doctorName: doctor,
+    patientName: patient,
+    staffName: staff,
+    location: hospital,
+    date: offset(dayOffset),
+    hour: `${8 + (i % 10)}:00`,
+    duration: "1h",
+    description: descriptions[(i + 5) % descriptions.length],
+    contactPerson: doctor,
+    status: i % 4 === 0 ? "upcoming" : "scheduled",
+  });
+}
+
 export const STAFF_MEETINGS = meetings.sort(
   (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
 );

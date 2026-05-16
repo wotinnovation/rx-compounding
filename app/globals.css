@@ -34,7 +34,7 @@
 }
 
 :root {
-  --background: #fdf2f8; /* Very light pink/magenta */
+  --background: #e0f2f1; /* Soft cyan */
   --foreground: #1e1b4b; /* Deep indigo for contrast */
   
   --card: #ffffff;
@@ -43,25 +43,25 @@
   --popover: #ffffff;
   --popover-foreground: #1e1b4b;
   
-  /* Primary is now a sophisticated magenta/purple */
-  --primary: #9d174d; 
+  /* Primary: teal #59b4b3 */
+  --primary: #59b4b3; 
   --primary-foreground: #ffffff;
   
-  --secondary: rgba(157, 23, 77, 0.05);
-  --secondary-foreground: #9d174d;
+  --secondary: rgba(89, 180, 179, 0.1);
+  --secondary-foreground: #3d9e9d;
   
-  --muted: rgba(157, 23, 77, 0.03);
+  --muted: rgba(89, 180, 179, 0.05);
   --muted-foreground: #64748b;
   
-  --accent: #fce7f3;
-  --accent-foreground: #9d174d;
+  --accent: #e0f7fa;
+  --accent-foreground: #3d9e9d;
   
   --destructive: #be123c;
   --destructive-foreground: #ffffff;
   
-  --border: rgba(157, 23, 77, 0.1);
-  --input: rgba(157, 23, 77, 0.1);
-  --ring: #f472b6;
+  --border: rgba(89, 180, 179, 0.15);
+  --input: rgba(89, 180, 179, 0.15);
+  --ring: #59b4b3;
   
   --radius: 10px;
 
@@ -130,11 +130,11 @@
 }
 
 .dark {
-  --background: #fdf2f8;
+  --background: #e0f2f1;
   --foreground: #1e1b4b;
   --card: #ffffff;
   --card-foreground: #1e1b4b;
-  --primary: #9d174d;
+  --primary: #59b4b3;
   --primary-foreground: #ffffff;
 }
 

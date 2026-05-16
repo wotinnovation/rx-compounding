@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Users, 
-  Pill, 
-  BarChart3, 
-  CheckCircle2, 
-  Gift, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Pill,
+  BarChart3,
+  CheckCircle2,
+  Gift,
   LogOut,
   Menu,
   X,
@@ -56,7 +56,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Toggle */}
-      <button 
+      <button
         className="fixed top-4 left-4 z-50 p-2 lg:hidden bg-primary text-primary-foreground rounded-[10px] shadow-lg"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -73,22 +73,24 @@ export function Sidebar() {
         )}
       >
         {/* Logo */}
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-[10px] flex items-center justify-center shadow-lg shadow-primary/20">
-            <Stethoscope className="text-primary-foreground" size={24} />
-          </div>
-          <AnimatePresence>
-            {isOpen && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
-              >
-                RxSales
-              </motion.span>
-            )}
-          </AnimatePresence>
+        <div className="h-24 px-4 flex items-center justify-center overflow-hidden border-b border-border/40">
+          {isOpen ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/images/logo/logo.png"
+              alt="RX Logo"
+              style={{ width: 120, height: 'auto', display: 'block' }}
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-[10px] bg-primary/10 flex items-center justify-center overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo/logo.png"
+                alt="RX"
+                style={{ width: 36, height: 'auto', display: 'block' }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -101,8 +103,8 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-4 py-2 rounded-[10px] transition-all duration-200 group relative",
-                  isActive 
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 )}
               >
@@ -134,13 +136,13 @@ export function Sidebar() {
           <div className="px-4 py-4 space-y-2 border-t border-border">
             <AnimatePresence>
               {isOpen ? (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-2"
                 >
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2 mb-2">Resource Center</p>
-                  <button 
+                  <button
                     onClick={() => setActiveModal("clinic")}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 hover:bg-primary/10 rounded-[10px] transition-all border border-primary/20 shadow-sm"
                   >
@@ -149,8 +151,8 @@ export function Sidebar() {
                 </motion.div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <button 
-                    onClick={() => setActiveModal("clinic")} 
+                  <button
+                    onClick={() => setActiveModal("clinic")}
                     className="p-3 text-primary bg-primary/5 hover:bg-primary/10 rounded-[10px] border border-primary/20"
                     title="Quick Onboard"
                   >
@@ -178,7 +180,7 @@ export function Sidebar() {
               </div>
             )}
             {isOpen && (
-              <button 
+              <button
                 onClick={logout}
                 className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-[10px] transition-colors"
                 title="Logout"
@@ -188,7 +190,7 @@ export function Sidebar() {
             )}
           </div>
           {!isOpen && (
-            <button 
+            <button
               onClick={logout}
               className="mt-4 p-3 hover:bg-destructive/10 hover:text-destructive rounded-[10px] transition-colors w-full flex justify-center"
               title="Logout"
@@ -200,16 +202,16 @@ export function Sidebar() {
       </motion.aside>
 
       {/* Main Content Spacer (Desktop) */}
-      <div 
-        className="hidden lg:block transition-all duration-300 ease-in-out" 
+      <div
+        className="hidden lg:block transition-all duration-300 ease-in-out"
         style={{ width: isOpen ? "var(--sidebar-width)" : "var(--sidebar-collapsed-width)" }}
       />
 
       <AnimatePresence>
         {activeModal && (
-          <UnifiedAddForm 
-            initialTab={activeModal as any} 
-            onClose={() => setActiveModal(null)} 
+          <UnifiedAddForm
+            initialTab={activeModal as any}
+            onClose={() => setActiveModal(null)}
           />
         )}
       </AnimatePresence>

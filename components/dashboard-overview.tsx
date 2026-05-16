@@ -41,6 +41,7 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
   const [activeModal, setActiveModal] = useState<"audit" | "facility" | "patient" | "doctor" | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<Appointment | null>(null);
   const [loggingMeeting, setLoggingMeeting] = useState<Appointment | null>(null);
+  const [calendarFilter, setCalendarFilter] = useState<"today" | "week" | "month">("today");
 
   const user = mockUser || authUser;
 
@@ -54,21 +55,40 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
 
   // Today's Data
   const todayStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+  const monthStr = now.toISOString().slice(0, 7);
+
   const todaysAppointments = appointments.filter(app => app.date === todayStr);
   const completedToday = todaysAppointments.filter(app => app.status === "completed").length;
 
   // Merge today's context appointments + today's scheduled staff meetings
   const todayStaffScheduled = STAFF_MEETINGS
     .filter(m => m.date === todayStr && m.status === "scheduled");
-  const todaysFocus = [
+  const allTodaysFocus = [
     ...todaysAppointments,
     ...todayStaffScheduled.filter(sm => !todaysAppointments.find(a => a.id === sm.id))
   ].sort((a, b) => a.hour.localeCompare(b.hour));
 
-  // Future pipeline sorted ascending by date
-  const upcomingMeetings = appointments
-    .filter(app => app.status === "scheduled" || app.status === "upcoming")
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // Filter all appointments based on calendarFilter
+  const allMerged = [
+    ...appointments,
+    ...STAFF_MEETINGS.filter(sm => !appointments.find(a => a.id === sm.id))
+  ];
+  const calendarAppointments = allMerged.filter(app => {
+    if (calendarFilter === "today") return app.date === todayStr;
+    if (calendarFilter === "week") return app.date >= weekStartStr && app.date <= weekEndStr;
+    if (calendarFilter === "month") return app.date.startsWith(monthStr);
+    return true;
+  }).sort((a, b) => {
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    return dateDiff !== 0 ? dateDiff : a.hour.localeCompare(b.hour);
+  });
+
+  const todaysFocus = allTodaysFocus; // keep for header stat
 
   const stats = [
     { label: "Today's Schedule", value: todaysFocus.length.toString(), sub: `${completedToday} Completed`, icon: MapPin, color: "bg-blue-500" },
@@ -131,23 +151,46 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
 
         {/* LEFT COLUMN: Today's Focus */}
         <div className="lg:col-span-8 bg-card border border-border rounded-[10px] card-shadow overflow-hidden">
-          <div className="p-6 border-b border-border flex items-center justify-between bg-secondary/20">
-            <h3 className="text-xl font-black tracking-tight uppercase">Today's Focus</h3>
-            <Zap className="text-primary" size={24} />
+          <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-secondary/20">
+            <h3 className="text-xl font-black tracking-tight uppercase flex items-center gap-2">
+              <Calendar size={20} className="text-primary" />
+              {calendarFilter === "today" ? "Today's Focus" : calendarFilter === "week" ? "This Week" : "This Month"}
+            </h3>
+            <div className="flex items-center gap-2">
+              {(["today", "week", "month"] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setCalendarFilter(f)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-[8px] text-[9px] font-black uppercase tracking-widest transition-all",
+                    calendarFilter === f
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="divide-y divide-border">
-            {todaysFocus.slice(0, 6).map((app, i) => (
+            {calendarAppointments.slice(0, 8).map((app, i) => (
               <motion.div
                 key={`${app.id}-${i}`}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ delay: i * 0.04 }}
                 onClick={() => setSelectedMeeting(app)}
                 className="p-6 flex items-center justify-between cursor-pointer hover:bg-secondary/30 transition-all group"
               >
                 <div className="flex items-center gap-6 flex-1 min-w-0">
-                  <div className="w-12 h-12 rounded-[10px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                    <Clock size={20} />
+                  <div className="w-12 h-12 rounded-[10px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 flex-col gap-0.5">
+                    {calendarFilter !== "today" && (
+                      <span className="text-[8px] font-black uppercase text-primary/60 leading-none">
+                        {new Date(app.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                    <Clock size={calendarFilter === "today" ? 20 : 14} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 mb-1">
@@ -199,20 +242,20 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
                 </div>
               </motion.div>
             ))}
-            {todaysFocus.length === 0 && (
+            {calendarAppointments.length === 0 && (
               <div className="py-20 text-center opacity-40">
-                <Zap size={40} className="mx-auto mb-4" />
-                <p className="italic text-sm font-bold uppercase tracking-widest">No active tasks for this shift.</p>
+                <Calendar size={40} className="mx-auto mb-4" />
+                <p className="italic text-sm font-bold uppercase tracking-widest">No activities for this period.</p>
               </div>
             )}
           </div>
-          {todaysFocus.length > 6 && (
+          {calendarAppointments.length > 8 && (
             <div className="p-4 bg-secondary/10 border-t border-border">
               <Link
                 href="/dashboard/appointments"
                 className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-border rounded-[10px] text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all shadow-sm"
               >
-                View Full Operational Schedule <ChevronRight size={14} />
+                View Full Operational Schedule ({calendarAppointments.length} total) <ChevronRight size={14} />
               </Link>
             </div>
           )}

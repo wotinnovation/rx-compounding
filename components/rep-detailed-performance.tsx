@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   TrendingUp, 
   MapPin, 
@@ -42,10 +42,8 @@ import { NewAuditForm } from "./forms/new-audit-form";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOURS = [
-  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", 
-  "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", 
-  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", 
-  "17:00"
+  "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", 
+  "14:00", "15:00", "16:00", "17:00"
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -171,6 +169,33 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
     d.setHours(0, 0, 0, 0);
     return d;
   }, [currentDate]);
+
+  // Auto-sync currentDate to today when filterRange changes
+  useEffect(() => {
+    setCurrentDate(new Date());
+  }, [filterRange]);
+
+  // Compute weeks to display in calendar view
+  const calendarWeeks = useMemo(() => {
+    if (filterRange !== "month") {
+      return [startOfWeek];
+    }
+    // All weeks in the current month
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // Find Sunday at or before firstDay
+    const weekStart = new Date(firstDay);
+    weekStart.setDate(firstDay.getDate() - firstDay.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weeks: Date[] = [];
+    const cursor = new Date(weekStart);
+    while (cursor <= lastDay) {
+      weeks.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return weeks;
+  }, [filterRange, startOfWeek]);
 
   const shiftWeek = (weeks: number) => {
     const nextDate = new Date(currentDate);
@@ -304,15 +329,31 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="flex bg-white border border-border rounded-[8px] overflow-hidden">
-                    <button onClick={() => shiftWeek(-1)} className="p-1.5 hover:bg-secondary border-r border-border transition-colors"><ChevronLeft size={16} /></button>
-                    <div className="px-3 flex items-center font-black text-[9px] uppercase tracking-widest min-w-[120px] justify-center">
-                      {startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(new Date(startOfWeek).setDate(startOfWeek.getDate() + 6)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    <button onClick={() => shiftWeek(1)} className="p-1.5 hover:bg-secondary border-l border-border transition-colors"><ChevronRight size={16} /></button>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex bg-white/50 p-1 rounded-[10px] border border-border shrink-0">
+                    {(["today", "week", "month"] as const).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setFilterRange(r)}
+                        className={cn(
+                          "px-4 py-1.5 rounded-[8px] text-[10px] font-black uppercase tracking-widest transition-all",
+                          filterRange === r ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:bg-secondary/40"
+                        )}
+                      >
+                        {r}
+                      </button>
+                    ))}
                   </div>
-                  <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 bg-secondary/50 border border-border rounded-[8px] text-[9px] font-black uppercase tracking-widest hover:bg-secondary transition-all">Today</button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex bg-white border border-border rounded-[8px] overflow-hidden">
+                      <button onClick={() => shiftWeek(-1)} className="p-1.5 hover:bg-secondary border-r border-border transition-colors"><ChevronLeft size={16} /></button>
+                      <div className="px-3 flex items-center font-black text-[9px] uppercase tracking-widest min-w-[120px] justify-center">
+                        {startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(new Date(startOfWeek).setDate(startOfWeek.getDate() + 6)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </div>
+                      <button onClick={() => shiftWeek(1)} className="p-1.5 hover:bg-secondary border-l border-border transition-colors"><ChevronRight size={16} /></button>
+                    </div>
+                    <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 bg-secondary/50 border border-border rounded-[8px] text-[9px] font-black uppercase tracking-widest hover:bg-secondary transition-all">Today</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -373,62 +414,91 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
                 </table>
               </div>
             ) : (
-              <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-                <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border bg-secondary/10 min-w-[1000px]">
-                  <div className="p-4 border-r border-border flex items-center justify-center"><Clock size={14} className="text-muted-foreground" /></div>
-                  {DAYS.map((day, idx) => {
-                    const date = new Date(startOfWeek);
-                    date.setDate(startOfWeek.getDate() + idx);
-                    const isToday = date.toDateString() === new Date().toDateString();
-                    return (
-                      <div key={day} className={cn("p-4 text-center border-r last:border-0 border-border", isToday ? "bg-primary/5" : "")}>
-                        <p className="font-black text-[9px] uppercase tracking-widest text-muted-foreground">{day}</p>
-                        <p className={cn("text-sm font-black", isToday ? "text-primary" : "")}>{date.getDate()}</p>
+              <div className="overflow-x-auto overflow-y-auto max-h-[700px]">
+                {calendarWeeks.map((weekStart, weekIdx) => (
+                  <div key={weekIdx} className="min-w-[1000px]">
+                    {/* Day header row per week */}
+                    <div className={cn("grid grid-cols-[80px_repeat(7,1fr)] border-b border-border bg-secondary/10", weekIdx > 0 && "border-t-4 border-t-primary/10")}>
+                      <div className="p-4 border-r border-border flex items-center justify-center">
+                        {weekIdx === 0 ? <Clock size={14} className="text-muted-foreground" /> : (
+                          <span className="text-[8px] font-black text-muted-foreground/50 uppercase">W{weekIdx + 1}</span>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="min-w-[1000px]">
-                  {HOURS.map((hour) => (
-                    <div key={hour} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-0 min-h-[100px]">
-                      <div className="p-4 border-r border-border text-[9px] font-black text-muted-foreground flex items-center justify-center bg-secondary/5">{hour}</div>
-                      {DAYS.map((_, dayIdx) => {
-                        const dayDate = new Date(startOfWeek);
-                        dayDate.setDate(startOfWeek.getDate() + dayIdx);
-                        const dayDateStr = dayDate.toISOString().split('T')[0];
-                        const hourApps = filteredMeetings.filter(a => a.date === dayDateStr && a.hour === hour);
+                      {DAYS.map((day, idx) => {
+                        const date = new Date(weekStart);
+                        date.setDate(weekStart.getDate() + idx);
+                        const isToday = date.toDateString() === new Date().toDateString();
                         return (
-                          <div key={dayIdx} className="p-1 border-r last:border-0 border-border relative hover:bg-secondary/5 group transition-all min-h-[100px]">
-                            <div className="flex flex-col gap-1">
-                              {hourApps.map((app, i) => (
-                                <div 
-                                  key={`cal-${app.id}-${i}`} 
-                                  onClick={() => setSelectedAppointment(app)}
-                                  className={cn(
-                                    "p-2 rounded-[6px] shadow-sm text-[9px] font-bold cursor-pointer hover:scale-[1.02] transition-all border",
-                                    STATUS_COLORS[app.status] || "bg-secondary/10 text-muted-foreground border-border"
-                                  )}
-                                >
-                                  <p className="uppercase leading-tight mb-0.5">{app.title}</p>
-                                  <p className="opacity-70 text-[8px] truncate">{app.entityName}</p>
-                                </div>
-                              ))}
-                            </div>
-                            <button 
-                              onClick={() => {
-                                setAddPreFill({ date: dayDateStr, hour: hour });
-                                setIsAddModalOpen(true);
-                              }}
-                              className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:scale-110 active:scale-95"
-                            >
-                              <Plus size={14} />
-                            </button>
+                          <div key={`${weekIdx}-${day}`} className={cn("p-4 text-center border-r last:border-0 border-border", isToday ? "bg-primary/5" : "")}>
+                            <p className="font-black text-[9px] uppercase tracking-widest text-muted-foreground">{day}</p>
+                            <p className={cn("text-sm font-black", isToday ? "text-primary" : "")}>{date.getDate()}</p>
+                            {filterRange === "month" && (
+                              <p className="text-[8px] text-muted-foreground/60">{date.toLocaleDateString('en-US', { month: 'short' })}</p>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                  ))}
-                </div>
+                    {/* Hour rows */}
+                    {HOURS.map((hour) => (
+                      <div key={`${weekIdx}-${hour}`} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-0 min-h-[100px]">
+                        <div className="p-4 border-r border-border text-[9px] font-black text-muted-foreground flex items-center justify-center bg-secondary/5">{hour}</div>
+                        {DAYS.map((_, dayIdx) => {
+                          const dayDate = new Date(weekStart);
+                          dayDate.setDate(weekStart.getDate() + dayIdx);
+                          const dayDateStr = dayDate.toISOString().split('T')[0];
+                          const hourPrefix = hour.split(':')[0];
+                          const hourApps = filteredMeetings.filter(a => a.date === dayDateStr && a.hour.startsWith(hourPrefix));
+                          return (
+                            <div key={dayIdx} className="p-1 border-r last:border-0 border-border relative hover:bg-secondary/5 group transition-all min-h-[100px]">
+                              <div className="flex flex-col gap-1 h-full pb-6">
+                                {hourApps.map((app, i) => (
+                                  <div 
+                                    key={`cal-${app.id}-${i}`} 
+                                    onClick={() => setSelectedAppointment(app)}
+                                    className={cn(
+                                      "p-2 rounded-[6px] shadow-sm text-[9px] font-bold cursor-pointer hover:scale-[1.02] transition-all border",
+                                      STATUS_COLORS[app.status] || "bg-secondary/10 text-muted-foreground border-border",
+                                      hourApps.length === 1 && "flex-1 flex flex-col justify-center h-full min-h-[70px]"
+                                    )}
+                                  >
+                                    <p className="uppercase leading-tight mb-0.5 line-clamp-2">{app.title}</p>
+                                    <p className="opacity-70 text-[8px] truncate">{app.entityName}</p>
+                                  </div>
+                                ))}
+                                {hourApps.length === 0 && (
+                                  <div 
+                                    onClick={() => {
+                                      setAddPreFill({ date: dayDateStr, hour: hour });
+                                      setIsAddModalOpen(true);
+                                    }}
+                                    className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                  >
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1 border border-primary/20 border-dashed">
+                                      <Plus size={16} />
+                                    </div>
+                                    <span className="text-[8px] font-black uppercase text-primary/60 tracking-widest">Schedule</span>
+                                  </div>
+                                )}
+                              </div>
+                              {hourApps.length > 0 && (
+                                <button 
+                                  onClick={() => {
+                                    setAddPreFill({ date: dayDateStr, hour: hour });
+                                    setIsAddModalOpen(true);
+                                  }}
+                                  className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:scale-110 active:scale-95 z-10"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -136,11 +136,11 @@ export function ManagerDashboard() {
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard label="Active Reps" value={`${reps.length}/10`} sub="2 on leave" icon={Users} color="bg-blue-500" />
-        <KPICard label="Visits Today" value="42 / 56" sub="75% Achievement" icon={MapPin} color="bg-emerald-500" />
-        <KPICard label="Action Required" value={unifiedPending.length.toString()} sub="Pending Approvals" icon={AlertTriangle} color="bg-red-500" />
-        <KPICard label="Follow-ups" value="14" sub="5 overdue" icon={Clock} color="bg-amber-500" />
-        <KPICard label="Unassigned" value={hospitals.filter(h => !h.assignedRepId).length.toString()} sub="Needs assignment" icon={MapPin} color="bg-indigo-500" />
+        <KPICard label="Active Reps" value={`${reps.length}/10`} sub="2 on leave" icon={Users} color="bg-blue-500" href="/dashboard/team" />
+        <KPICard label="Visits Today" value="42 / 56" sub="75% Achievement" icon={MapPin} color="bg-emerald-500" href="/dashboard/manager-appointments" />
+        <KPICard label="Action Required" value={unifiedPending.length.toString()} sub="Pending Approvals" icon={AlertTriangle} color="bg-red-500" href="/dashboard/approvals" />
+        <KPICard label="Follow-ups" value="14" sub="5 overdue" icon={Clock} color="bg-amber-500" href="/dashboard/manager-appointments" />
+        <KPICard label="Unassigned" value={hospitals.filter(h => !h.assignedRepId).length.toString()} sub="Needs assignment" icon={MapPin} color="bg-indigo-500" href="/dashboard/customers" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -283,10 +283,43 @@ export function ManagerDashboard() {
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-[10px] flex items-center justify-center shadow-inner"><ShieldCheck size={28} /></div>
-                <div><p className="text-2xl font-black text-emerald-500">100%</p><p className="text-[10px] font-black uppercase text-muted-foreground">{hospitals.length} / {hospitals.length} Mapped</p></div>
+                <div>
+                  {(() => {
+                    const mappedCount = hospitals.filter(h => h.assignedRepId).length;
+                    const pct = hospitals.length > 0 ? Math.round((mappedCount / hospitals.length) * 100) : 0;
+                    return (
+                      <>
+                        <p className={cn("text-2xl font-black", pct === 100 ? "text-emerald-500" : "text-amber-500")}>{pct}%</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">{mappedCount} / {hospitals.length} Mapped</p>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
-              <div className="h-1.5 bg-emerald-500/20 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: '100%' }} /></div>
-              <p className="text-xs text-muted-foreground leading-relaxed italic">"All facilities successfully mapped. Network integrity is optimal."</p>
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                {(() => {
+                    const pct = hospitals.length > 0 ? Math.round((hospitals.filter(h => h.assignedRepId).length / hospitals.length) * 100) : 0;
+                    return <div className={cn("h-full", pct === 100 ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${pct}%` }} />;
+                })()}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed italic">
+                {hospitals.filter(h => !h.assignedRepId).length > 0 
+                  ? `${hospitals.filter(h => !h.assignedRepId).length} facilities are currently unassigned:`
+                  : `"All facilities successfully mapped. Network integrity is optimal."`}
+              </p>
+              {hospitals.filter(h => !h.assignedRepId).length > 0 && (
+                <div className="max-h-[140px] overflow-y-auto space-y-2 bg-secondary/10 p-4 rounded-[10px] border border-border">
+                  {hospitals.filter(h => !h.assignedRepId).map(h => (
+                    <div key={h.id} className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                      <div>
+                        <span className="text-xs font-bold block">{h.name}</span>
+                        <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">{h.area}</span>
+                      </div>
+                      <span className="text-[9px] uppercase tracking-widest text-amber-500 font-black px-2 py-1 bg-amber-500/10 rounded-full">Pending</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button onClick={() => setShowBulkAssign(true)} className="w-full py-4 bg-primary text-primary-foreground rounded-[10px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Bulk Assign Console</button>
             </div>
           </div>
@@ -329,9 +362,12 @@ export function ManagerDashboard() {
   );
 }
 
-function KPICard({ label, value, sub, icon: Icon, color }: { label: string, value: string, sub: string, icon: any, color: string }) {
-  return (
-    <div className="p-6 bg-card border border-border rounded-[10px] card-shadow flex items-center gap-4 hover:border-primary/50 transition-all group">
+function KPICard({ label, value, sub, icon: Icon, color, href }: { label: string, value: string, sub: string, icon: any, color: string, href?: string }) {
+  const inner = (
+    <div className={cn(
+      "p-6 bg-card border border-border rounded-[10px] card-shadow flex items-center gap-4 transition-all group",
+      href ? "hover:border-primary/50 hover:-translate-y-0.5 cursor-pointer hover:shadow-xl" : "hover:border-primary/50"
+    )}>
       <div className={cn("w-12 h-12 rounded-[10px] flex items-center justify-center text-white shrink-0 shadow-lg group-hover:scale-110 transition-transform", color)}>
         <Icon size={24} />
       </div>
@@ -340,8 +376,11 @@ function KPICard({ label, value, sub, icon: Icon, color }: { label: string, valu
         <p className="text-2xl font-black mt-0.5">{value}</p>
         <p className="text-[9px] font-bold text-muted-foreground mt-1">{sub}</p>
       </div>
+      {href && <ChevronRight size={14} className="ml-auto text-muted-foreground opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5" />}
     </div>
   );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
 }
 
 function ActivityItem({ color, title, time, tag, onClick }: { color: string, title: string, time: string, tag?: string, onClick?: () => void }) {

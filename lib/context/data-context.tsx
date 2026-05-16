@@ -3,6 +3,7 @@
 
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { STAFF_MEETINGS } from "../data/staff-meetings-data";
 
 export interface Hospital {
   id: string;
@@ -384,7 +385,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const storedReps = localStorage.getItem("rx_reps_v4");
     const storedMedicines = localStorage.getItem("rx_medicines_v5");
     const storedSales = localStorage.getItem("rx_sales_v5");
-    const storedAppointments = localStorage.getItem("rx_appointments_v5");
+    const storedAppointments = localStorage.getItem("rx_appointments_v7");
     const storedExpenses = localStorage.getItem("rx_expenses_v5");
     const storedGiftMeetups = localStorage.getItem("rx_gift_meetups_v1");
 
@@ -445,7 +446,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (storedAppointments) setAppointments(JSON.parse(storedAppointments));
-    else setAppointments(generateAppointments());
+    else setAppointments([...STAFF_MEETINGS]);
     
     if (storedExpenses) {
       setGiftMeetups(JSON.parse(storedGiftMeetups || "[]"));
@@ -479,7 +480,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("rx_reps_v4", JSON.stringify(reps));
       localStorage.setItem("rx_medicines_v5", JSON.stringify(medicines));
       localStorage.setItem("rx_sales_v5", JSON.stringify(sales));
-      localStorage.setItem("rx_appointments_v5", JSON.stringify(appointments));
+      localStorage.setItem("rx_appointments_v7", JSON.stringify(appointments));
       localStorage.setItem("rx_expenses_v5", JSON.stringify(expenses));
       localStorage.setItem("rx_gift_meetups_v1", JSON.stringify(giftMeetups));
     }

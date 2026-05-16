@@ -292,7 +292,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                     const hourApps = filtered.filter(a => a.date === dayDateStr && a.hour === hour);
                     return (
                       <div key={dayIdx} className="p-1 border-r last:border-0 border-border relative hover:bg-primary/5 transition-all group/cell min-h-[140px]">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 h-full">
                           {hourApps.map((app) => (
                             <motion.div 
                               key={app.id} 
@@ -301,7 +301,8 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                               onClick={() => setSelectedMeeting(app)} 
                               className={cn(
                                 "rounded-[8px] p-2.5 shadow-lg text-[10px] flex flex-col justify-between border transition-all cursor-pointer hover:scale-[1.02]", 
-                                STATUS_COLORS[app.status] || "bg-secondary text-muted-foreground"
+                                STATUS_COLORS[app.status] || "bg-secondary text-muted-foreground",
+                                hourApps.length === 1 && "flex-1 min-h-[100px]"
                               )}
                             >
                               <p className="font-black uppercase tracking-tighter mb-1 leading-tight">{app.title}</p>
@@ -309,16 +310,32 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                               <div className="flex items-center gap-1 mt-1.5 opacity-70 italic"><MapPin size={8} /> {app.location}</div>
                             </motion.div>
                           ))}
+                          {hourApps.length === 0 && (
+                            <div
+                              onClick={() => {
+                                setAddPreFill({ date: dayDateStr, hour: hour });
+                                setIsAddModalOpen(true);
+                              }}
+                              className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity cursor-pointer"
+                            >
+                              <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20 border-dashed mb-1">
+                                <Plus size={18} />
+                              </div>
+                              <span className="text-[8px] font-black uppercase text-primary/60 tracking-widest">Schedule</span>
+                            </div>
+                          )}
                         </div>
-                        <button 
-                          onClick={() => {
-                            setAddPreFill({ date: dayDateStr, hour: hour });
-                            setIsAddModalOpen(true);
-                          }}
-                          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95 z-20"
-                        >
-                          <Plus size={18} />
-                        </button>
+                        {hourApps.length > 0 && (
+                          <button 
+                            onClick={() => {
+                              setAddPreFill({ date: dayDateStr, hour: hour });
+                              setIsAddModalOpen(true);
+                            }}
+                            className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95 z-20"
+                          >
+                            <Plus size={18} />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
