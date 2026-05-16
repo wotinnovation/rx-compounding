@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { 
-  Search, 
-  Calendar as CalendarIcon, 
-  Building2, 
-  MapPin, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Search,
+  Calendar as CalendarIcon,
+  Building2,
+  MapPin,
+  CheckCircle2,
+  Clock,
   X,
-  ChevronLeft, 
+  ChevronLeft,
   ChevronRight,
   Activity,
   Zap,
@@ -28,12 +28,21 @@ import { AppointmentDetailModal } from "@/components/appointment-detail-modal";
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType; pill: string }> = {
   scheduled: { label: "Scheduled", icon: Clock, color: "bg-blue-500", pill: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
   completed: { label: "Completed", icon: CheckCircle2, color: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
-  upcoming:  { label: "Upcoming",  icon: CalendarIcon, color: "bg-indigo-500", pill: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" },
-  visited:   { label: "Visited",   icon: Activity, color: "bg-amber-500", pill: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  upcoming: { label: "Upcoming", icon: CalendarIcon, color: "bg-indigo-500", pill: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" },
+  visited: { label: "Visited", icon: Activity, color: "bg-amber-500", pill: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-blue-600 text-white border-blue-500",
+  completed: "bg-emerald-600 text-white border-emerald-500",
+  visited: "bg-amber-600 text-white border-amber-500",
+  pending_approval: "bg-purple-600 text-white border-purple-500",
+  cancelled: "bg-rose-600 text-white border-rose-500",
+  upcoming: "bg-indigo-600 text-white border-indigo-500",
+};
 
 interface AppointmentsViewProps {
   title: string;
@@ -53,18 +62,18 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addPreFill, setAddPreFill] = useState<{ date?: string, hour?: string } | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<Appointment | null>(null);
-  
+
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 13));
 
   const filtered = useMemo(() => {
     const today = new Date(2026, 4, 13).toISOString().split('T')[0];
     return data.filter(app => {
       const q = searchQuery.toLowerCase();
-      const matchesSearch = app.title.toLowerCase().includes(q) || 
-                           app.entityName.toLowerCase().includes(q) ||
-                           (app.contactPerson && app.contactPerson.toLowerCase().includes(q));
+      const matchesSearch = app.title.toLowerCase().includes(q) ||
+        app.entityName.toLowerCase().includes(q) ||
+        (app.contactPerson && app.contactPerson.toLowerCase().includes(q));
       const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-      
+
       let matchesPeriod = true;
       if (listPeriod === "today") {
         matchesPeriod = app.date === today;
@@ -113,7 +122,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
               <CalendarDays size={16} /> Calendar
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-6 py-4 bg-primary text-primary-foreground rounded-[10px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all"
           >
@@ -121,6 +130,31 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
           </button>
         </div>
       </header>
+
+      {/* CALENDAR LEGEND */}
+      <div className="flex flex-wrap items-center gap-6 px-8 py-4 mb-6 bg-secondary/10 border-y border-border/50">
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Operational Status Key:</span>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm shadow-blue-500/20" />
+          <span className="text-[10px] font-black uppercase text-muted-foreground/80">Scheduled</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm shadow-amber-500/20" />
+          <span className="text-[10px] font-black uppercase text-muted-foreground/80">Visited</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-purple-500 shadow-sm shadow-purple-500/20" />
+          <span className="text-[10px] font-black uppercase text-muted-foreground/80">Pending Approval</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20" />
+          <span className="text-[10px] font-black uppercase text-muted-foreground/80">Completed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-rose-500 shadow-sm shadow-rose-500/20" />
+          <span className="text-[10px] font-black uppercase text-muted-foreground/80">Cancelled</span>
+        </div>
+      </div>
 
       <AnimatePresence mode="wait">
         {view === "list" ? (
@@ -131,16 +165,16 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
             </div>
             <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide items-center">
               <div className="flex bg-secondary/20 p-1 rounded-lg border border-border mr-2">
-                <button 
-                  onClick={() => setListPeriod("today")} 
+                <button
+                  onClick={() => setListPeriod("today")}
                   className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "today" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
                 >Today</button>
-                <button 
-                  onClick={() => setListPeriod("month")} 
+                <button
+                  onClick={() => setListPeriod("month")}
                   className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "month" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
                 >Month</button>
-                <button 
-                  onClick={() => setListPeriod("all")} 
+                <button
+                  onClick={() => setListPeriod("all")}
                   className={cn("px-4 py-2 rounded-md text-[9px] font-black uppercase transition-all", listPeriod === "all" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}
                 >All</button>
               </div>
@@ -200,18 +234,18 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                     <td className="px-8 py-6">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
-                           <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center text-[7px] font-black text-blue-600">D</div>
-                           <p className="text-xs font-bold">{app.doctorName || app.contactPerson}</p>
+                          <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center text-[7px] font-black text-blue-600">D</div>
+                          <p className="text-xs font-bold">{app.doctorName || app.contactPerson}</p>
                         </div>
                         {app.patientName && (
                           <div className="flex items-center gap-2">
-                             <div className="w-5 h-5 rounded-full bg-pink-500/10 flex items-center justify-center text-[7px] font-black text-pink-600">P</div>
-                             <p className="text-[10px] font-bold text-muted-foreground">{app.patientName}</p>
+                            <div className="w-5 h-5 rounded-full bg-pink-500/10 flex items-center justify-center text-[7px] font-black text-pink-600">P</div>
+                            <p className="text-[10px] font-bold text-muted-foreground">{app.patientName}</p>
                           </div>
                         )}
                         <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                           <p className="text-[8px] font-black uppercase text-muted-foreground">Staff:</p>
-                           <p className="text-[9px] font-bold text-primary">{app.staffName || "System"}</p>
+                          <p className="text-[8px] font-black uppercase text-muted-foreground">Staff:</p>
+                          <p className="text-[9px] font-bold text-primary">{app.staffName || "System"}</p>
                         </div>
                       </div>
                     </td>
@@ -219,7 +253,7 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                       <span className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[10px] font-black uppercase tracking-widest border", STATUS_CONFIG[app.status]?.pill || "bg-secondary text-muted-foreground")}>{app.status}</span>
                     </td>
                     <td className="px-8 py-6 text-center">
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setEditingMeeting(app); }}
                         className="p-2.5 bg-secondary/50 text-muted-foreground border border-border rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all"
                       >
@@ -257,27 +291,34 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
                     const dayDateStr = dayDate.toISOString().split('T')[0];
                     const hourApps = filtered.filter(a => a.date === dayDateStr && a.hour === hour);
                     return (
-                      <div key={dayIdx} className="p-2 border-r last:border-0 border-border relative hover:bg-primary/5 transition-all group/cell">
-                        {hourApps.length > 0 ? hourApps.map((app) => (
-                          <motion.div key={app.id} initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={() => setSelectedMeeting(app)} className={cn("absolute inset-2 rounded-[10px] p-3 shadow-2xl text-[10px] flex flex-col justify-between z-10 border border-white/10 hover:scale-[1.05] transition-all cursor-pointer", app.type === "medical" ? "bg-blue-600 text-white" : app.type === "meeting" ? "bg-purple-600 text-white" : "bg-emerald-600 text-white")}>
-                            <p className="font-black uppercase tracking-tighter mb-1 leading-tight">{app.title}</p>
-                            <div className="flex flex-col gap-0.5">
+                      <div key={dayIdx} className="p-1 border-r last:border-0 border-border relative hover:bg-primary/5 transition-all group/cell min-h-[140px]">
+                        <div className="flex flex-col gap-1">
+                          {hourApps.map((app) => (
+                            <motion.div 
+                              key={app.id} 
+                              initial={{ scale: 0.95, opacity: 0 }} 
+                              animate={{ scale: 1, opacity: 1 }} 
+                              onClick={() => setSelectedMeeting(app)} 
+                              className={cn(
+                                "rounded-[8px] p-2.5 shadow-lg text-[10px] flex flex-col justify-between border transition-all cursor-pointer hover:scale-[1.02]", 
+                                STATUS_COLORS[app.status] || "bg-secondary text-muted-foreground"
+                              )}
+                            >
+                              <p className="font-black uppercase tracking-tighter mb-1 leading-tight">{app.title}</p>
                               <p className="opacity-80 font-bold truncate">{app.hospitalName || app.entityName}</p>
-                              <p className="text-[8px] font-black uppercase opacity-60">Staff: {app.staffName || "Unassigned"}</p>
-                            </div>
-                            <div className="flex items-center gap-1 mt-2 opacity-70 italic"><MapPin size={8} /> {app.location}</div>
-                          </motion.div>
-                        )) : (
-                          <button 
-                            onClick={() => {
-                              setAddPreFill({ date: dayDateStr, hour: hour });
-                              setIsAddModalOpen(true);
-                            }}
-                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity text-primary hover:bg-primary/5"
-                          >
-                            <Plus size={24} className="hover:scale-125 transition-transform" />
-                          </button>
-                        )}
+                              <div className="flex items-center gap-1 mt-1.5 opacity-70 italic"><MapPin size={8} /> {app.location}</div>
+                            </motion.div>
+                          ))}
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setAddPreFill({ date: dayDateStr, hour: hour });
+                            setIsAddModalOpen(true);
+                          }}
+                          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95 z-20"
+                        >
+                          <Plus size={18} />
+                        </button>
                       </div>
                     );
                   })}
@@ -290,10 +331,10 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
 
       <AnimatePresence>
         {selectedMeeting && (
-          <AppointmentDetailModal 
-            meeting={selectedMeeting} 
+          <AppointmentDetailModal
+            meeting={selectedMeeting}
             role={role}
-            onClose={() => setSelectedMeeting(null)} 
+            onClose={() => setSelectedMeeting(null)}
             onLogVisit={() => {
               setLoggingMeeting(selectedMeeting);
               setSelectedMeeting(null);
@@ -301,17 +342,17 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
           />
         )}
         {loggingMeeting && (
-          <VisitCompletionForm 
-            meeting={loggingMeeting} 
-            onClose={() => setLoggingMeeting(null)} 
+          <VisitCompletionForm
+            meeting={loggingMeeting}
+            onClose={() => setLoggingMeeting(null)}
           />
         )}
         {isAddModalOpen && (
-          <NewAuditForm 
+          <NewAuditForm
             onClose={() => {
               setIsAddModalOpen(false);
               setAddPreFill(null);
-            }} 
+            }}
             initialData={addPreFill || undefined}
           />
         )}
@@ -323,15 +364,15 @@ export function AppointmentsView({ title, subtitle, data, role }: AppointmentsVi
               <p className="text-sm text-muted-foreground mb-4">Editing: {editingMeeting.title}</p>
               {/* Simplified edit for now as demonstration of the modal opening */}
               <div className="space-y-4">
-                <input 
-                  type="text" 
-                  defaultValue={editingMeeting.title} 
+                <input
+                  type="text"
+                  defaultValue={editingMeeting.title}
                   className="w-full p-4 bg-secondary/30 border border-border rounded-lg text-sm font-bold"
                   placeholder="Update Title"
                 />
                 <div className="flex justify-end gap-3 mt-6">
-                   <button onClick={() => setEditingMeeting(null)} className="px-6 py-2 text-[10px] font-black uppercase">Cancel</button>
-                   <button onClick={() => setEditingMeeting(null)} className="px-8 py-2 bg-primary text-white rounded-lg text-[10px] font-black uppercase">Save Changes</button>
+                  <button onClick={() => setEditingMeeting(null)} className="px-6 py-2 text-[10px] font-black uppercase">Cancel</button>
+                  <button onClick={() => setEditingMeeting(null)} className="px-8 py-2 bg-primary text-white rounded-lg text-[10px] font-black uppercase">Save Changes</button>
                 </div>
               </div>
             </div>

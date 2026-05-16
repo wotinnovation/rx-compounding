@@ -35,7 +35,7 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
     freeSamples: meeting.freeSamples || [],
     orders: meeting.orders || [],
     closingComments: meeting.closingComments || "",
-    status: meeting.status || "completed"
+    status: "pending_approval"
   });
 
   React.useEffect(() => {
@@ -47,7 +47,7 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
   }, [onClose]);
 
   const handleSaveReport = () => {
-    updateAppointment(meeting.id, reportData);
+    updateAppointment(meeting.id, { ...reportData, status: "pending_approval" });
     onClose();
   };
 
@@ -364,16 +364,11 @@ export function VisitCompletionForm({ meeting, onClose }: VisitCompletionFormPro
         </div>
 
         {/* Action Footer */}
-        <div className="p-8 border-t border-border bg-secondary/10 flex items-center justify-between gap-4">
-          <select 
-            value={reportData.status}
-            onChange={(e) => setReportData({...reportData, status: e.target.value as any})}
-            className="px-4 py-2 bg-card border border-border rounded-[10px] font-black text-[10px] uppercase tracking-widest outline-none cursor-pointer"
-          >
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+        <div className="p-8 border-t border-border bg-secondary/10 flex items-center justify-end gap-4">
+          <div className="flex items-center gap-3 mr-auto">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">Awaiting Managerial Audit</span>
+          </div>
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="px-6 py-3 text-muted-foreground font-black text-[10px] uppercase hover:bg-secondary rounded-[10px] transition-colors">Discard</button>
             <button 

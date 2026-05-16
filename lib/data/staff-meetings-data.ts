@@ -53,7 +53,7 @@ const descriptions = [
   "Emergency delivery of free samples and verification of prescription workflows.",
   "Onboarding review for high-priority chronic condition patients in the Bur Dubai area.",
   "Analyzing competitor market share in the Jumeirah medical corridor.",
-  "Monthly reconciliation of free medicine distribution and sample inventory."
+  "Monthly reconciliation of samples and gifts distribution and sample inventory."
 ];
 
 const meetings: Appointment[] = [];

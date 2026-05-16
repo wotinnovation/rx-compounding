@@ -20,7 +20,8 @@ import {
   PlusCircle,
   UserPlus,
   Hospital,
-  Receipt
+  Receipt,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
@@ -41,16 +42,15 @@ export function Sidebar() {
       { icon: ClipboardList, label: "Appointments", href: "/dashboard/manager-appointments" },
       { icon: Users, label: "Team Performance", href: "/dashboard/team" },
       { icon: MapPin, label: "Customer Assignment", href: "/dashboard/customers" },
-      { icon: BarChart3, label: "Inventory Analysis", href: "/dashboard/inventory" },
+      { icon: FileText, label: "Intelligence Center", href: "/dashboard/reports" },
+      { icon: Receipt, label: "Approvals & Expenses", href: "/dashboard/approvals" },
     ] : [
       { icon: Calendar, label: "Appointments", href: "/dashboard/staff-appointments" },
       { icon: ClipboardList, label: "Meetings & Visits", href: "/dashboard/staff-meetings" },
     ]),
-    { icon: Pill, label: "Medicine Select", href: "/dashboard/medicines" },
     { icon: BarChart3, label: "Sales View", href: "/dashboard/sales" },
-    { icon: CheckCircle2, label: "Closed Items", href: "/dashboard/closed" },
-    { icon: Gift, label: "Free Medicine", href: "/dashboard/free-medicine" },
-    { icon: Receipt, label: "Approvals & Expenses", href: "/dashboard/approvals" },
+    { icon: Pill, label: "Clinical Samples", href: "/dashboard/free-medicine" },
+    { icon: Gift, label: "Gifts & Meetups", href: "/dashboard/gifts-meetups" },
   ];
 
   return (

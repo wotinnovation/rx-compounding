@@ -14,9 +14,14 @@ interface AppointmentDetailModalProps {
 }
 
 export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: AppointmentDetailModalProps) {
-  const { medicines } = useData();
+  const { medicines, updateAppointment, approveSamples } = useData();
   const isStaff = role === "Staff";
+  const isManager = role === "Manager";
   const canLog = isStaff && (meeting.status === "scheduled" || meeting.status === "upcoming");
+  const isPending = meeting.status === "pending_approval";
+  const hasPendingSamples = meeting.freeSamples && meeting.freeSamples.some(s => !s.approved);
+  const [comment, setComment] = React.useState("");
+  const [error, setError] = React.useState("");
 
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -167,14 +172,64 @@ export function AppointmentDetailModal({ meeting, role, onClose, onLogVisit }: A
                   </div>
                 </div>
               )}
+
+              {isManager && (isPending || hasPendingSamples) && (
+                <div className="p-6 bg-secondary/30 rounded-[10px] border border-border mt-6">
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-primary">Managerial Audit Remarks</p>
+                  <textarea 
+                    value={comment}
+                    onChange={(e) => {
+                      setComment(e.target.value);
+                      if (e.target.value) setError("");
+                    }}
+                    placeholder="Provide audit feedback or reason for rejection..."
+                    className={cn(
+                      "w-full bg-white dark:bg-black/20 border rounded-[10px] p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all min-h-[100px] resize-none",
+                      error ? "border-rose-500 shadow-sm shadow-rose-500/10" : "border-border"
+                    )}
+                  />
+                  {error && <p className="text-[10px] font-bold text-rose-500 mt-2 uppercase tracking-widest">{error}</p>}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <div className="p-8 border-t border-border flex justify-end gap-3 bg-secondary/5">
           <button type="button" onClick={onClose} className="px-8 py-4 bg-secondary text-foreground font-black text-[10px] uppercase rounded-[10px] hover:bg-secondary/70 transition-all">Close</button>
+          
           {canLog && onLogVisit && (
             <button type="button" onClick={onLogVisit} className="px-12 py-4 bg-primary text-primary-foreground font-black text-[10px] uppercase rounded-[10px] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Log Visit Outcome</button>
+          )}
+
+          {isManager && (isPending || hasPendingSamples) && (
+            <div className="flex gap-2">
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (!comment.trim()) {
+                    setError("REJECTION REQUIRES A COMMENT");
+                    return;
+                  }
+                  updateAppointment(meeting.id, { status: "cancelled", managerComment: comment });
+                  onClose();
+                }} 
+                className="px-6 py-4 bg-rose-500/10 text-rose-600 border border-rose-500/20 font-black text-[10px] uppercase rounded-[10px] hover:bg-rose-500 hover:text-white transition-all"
+              >
+                Reject Report
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (hasPendingSamples) approveSamples(meeting.id);
+                  updateAppointment(meeting.id, { status: "completed", managerComment: comment });
+                  onClose();
+                }} 
+                className="px-12 py-4 bg-emerald-500 text-white font-black text-[10px] uppercase rounded-[10px] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all"
+              >
+                Authorize & Complete
+              </button>
+            </div>
           )}
         </div>
       </motion.div>

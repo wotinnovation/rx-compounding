@@ -1,0 +1,181 @@
+"use client";
+
+import React from "react";
+import { X, Gift, Coffee, Building2, User, Calendar, CheckCircle2, XCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { GiftMeetup } from "@/lib/context/data-context";
+import { cn } from "@/lib/utils";
+
+interface GiftDetailModalProps {
+  item: GiftMeetup;
+  onClose: () => void;
+  onApprove: (id: string, comment?: string) => void;
+  onReject: (id: string, comment: string) => void;
+}
+
+export function GiftDetailModal({ item, onClose, onApprove, onReject }: GiftDetailModalProps) {
+  const [comment, setComment] = React.useState("");
+  const [error, setError] = React.useState("");
+  React.useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        onClick={onClose} 
+        className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer pointer-events-auto" 
+      />
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+        animate={{ scale: 1, opacity: 1, y: 0 }} 
+        exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+        className="relative bg-card border border-border w-full max-w-xl rounded-[10px] shadow-2xl overflow-hidden pointer-events-auto"
+      >
+        <div className={cn(
+          "p-10 text-white relative overflow-hidden",
+          item.type === 'gift' ? "bg-primary" : "bg-blue-600"
+        )}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
+          <button type="button" onClick={onClose} className="absolute top-8 right-8 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 z-50 transition-colors"><X size={20} /></button>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2 opacity-70">
+              {item.type === 'gift' ? <Gift size={14} /> : <Coffee size={14} />}
+              <p className="text-[10px] font-black uppercase tracking-[0.4em]">
+                {item.type === 'gift' ? "Promotional Gift" : "Professional Meetup"}
+              </p>
+            </div>
+            <h3 className="text-3xl font-black tracking-tighter">{item.item}</h3>
+            <div className="mt-4 flex items-center gap-2">
+               <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest">
+                 {item.status.replace('_', ' ')}
+               </span>
+               <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-black tabular-nums">
+                 AED {item.cost?.toLocaleString()}
+               </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-10 space-y-8">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Staff Member</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <User size={14} className="text-muted-foreground" />
+                  </div>
+                  <p className="font-black text-sm">{item.staffName}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Facility</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <Building2 size={14} className="text-muted-foreground" />
+                  </div>
+                  <p className="font-black text-sm">{item.hospitalName}</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Beneficiary (Doctor)</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <User size={14} className="text-muted-foreground" />
+                  </div>
+                  <p className="font-black text-sm">{item.doctorName}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Activity Date</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <Calendar size={14} className="text-muted-foreground" />
+                  </div>
+                  <p className="font-black text-sm">{item.date}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 bg-secondary/10 rounded-[10px] border border-border">
+             <div className="flex justify-between items-center mb-4">
+               <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Provision Details</p>
+               <p className="text-[10px] font-black uppercase text-primary">Qty: {item.quantity}</p>
+             </div>
+             <p className="text-sm font-medium leading-relaxed italic">
+               Logged provision of {item.item} for clinical relationship management at {item.hospitalName}.
+             </p>
+          </div>
+
+          {item.proofUrl && (
+            <div className="p-6 bg-secondary/5 rounded-[10px] border border-border">
+              <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-60">Attached Confirmation / Receipt</p>
+              <div className="relative w-full h-48 rounded-[10px] overflow-hidden border border-border">
+                <img src={item.proofUrl} alt="Receipt / Proof" className="object-cover w-full h-full hover:scale-105 transition-transform duration-500" />
+              </div>
+            </div>
+          )}
+
+          {item.status === 'pending_approval' && (
+            <div className="p-6 bg-secondary/30 rounded-[10px] border border-border">
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-primary">Managerial Review Comment</p>
+              <textarea 
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                  if (e.target.value) setError("");
+                }}
+                placeholder="Required for rejection, optional for approval..."
+                className={cn(
+                  "w-full bg-white dark:bg-black/20 border rounded-[10px] p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all min-h-[80px] resize-none",
+                  error ? "border-rose-500" : "border-border"
+                )}
+              />
+              {error && <p className="text-[10px] font-bold text-rose-500 mt-2 uppercase tracking-widest">{error}</p>}
+            </div>
+          )}
+        </div>
+
+        <div className="p-8 border-t border-border flex justify-end gap-3 bg-secondary/5">
+          <button type="button" onClick={onClose} className="px-8 py-4 bg-secondary text-foreground font-black text-[10px] uppercase rounded-[10px] hover:bg-secondary/70 transition-all">Close</button>
+          {item.status === 'pending_approval' && (
+            <>
+              <button 
+                type="button" 
+                onClick={() => { 
+                  if (!comment.trim()) {
+                    setError("REJECTION REQUIRES A COMMENT");
+                    return;
+                  }
+                  onReject(item.id, comment); 
+                  onClose(); 
+                }} 
+                className="px-8 py-4 bg-rose-500/10 text-rose-600 font-black text-[10px] uppercase rounded-[10px] hover:bg-rose-500/20 transition-all flex items-center gap-2"
+              >
+                <XCircle size={14} /> Reject
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { onApprove(item.id, comment); onClose(); }} 
+                className="px-10 py-4 bg-emerald-500 text-white font-black text-[10px] uppercase rounded-[10px] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center gap-2"
+              >
+                <CheckCircle2 size={14} /> Approve Now
+              </button>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}

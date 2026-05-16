@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   TrendingUp, 
   MapPin, 
@@ -24,25 +24,60 @@ import {
   History,
   ClipboardList,
   AlertCircle,
-  FlaskConical
+  FlaskConical,
+  LayoutList,
+  CalendarDays,
+  ChevronLeft,
+  Maximize2,
+  Minimize2,
+  Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useData, SalesRep, Sale, Hospital, Medicine, Doctor, Patient } from "@/lib/context/data-context";
+import { useData, SalesRep, Sale, Hospital, Medicine, Doctor, Patient, Appointment } from "@/lib/context/data-context";
+import { STAFF_MEETINGS } from "@/lib/data/staff-meetings-data";
+import { AppointmentDetailModal } from "./appointment-detail-modal";
+import { VisitCompletionForm } from "./visit-completion-form";
+import { NewAuditForm } from "./forms/new-audit-form";
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const HOURS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", 
+  "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", 
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", 
+  "17:00"
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-blue-500/10 text-blue-600 border-blue-200",
+  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  visited: "bg-amber-500/10 text-amber-600 border-amber-200",
+  pending_approval: "bg-purple-500/10 text-purple-600 border-purple-200",
+  cancelled: "bg-rose-500/10 text-rose-600 border-rose-200",
+  upcoming: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
+};
 
 export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack: () => void }) {
   const { 
     hospitals, medicines, getRepSales, sales, doctors,
     getHospitalDoctors, getHospitalPatients, getDoctorSales,
-    togglePatientStatus
+    togglePatientStatus, appointments
   } = useData();
   
   const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"doctors" | "patients">("doctors");
+  const [viewMode, setViewMode] = useState<"doctors" | "patients" | "ledger">("doctors");
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [loggingAppointment, setLoggingAppointment] = useState<Appointment | null>(null);
   
+  const [filterRange, setFilterRange] = useState<"today" | "week" | "month">("week");
+  const [viewType, setViewType] = useState<"table" | "calendar">("table");
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [showAllActivity, setShowAllActivity] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addPreFill, setAddPreFill] = useState<{ date?: string, hour?: string } | null>(null);
   
   const myHospitals = hospitals.filter(h => h.assignedRepId === rep.id);
   const mySales = getRepSales(rep.id);
@@ -64,6 +99,84 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
   const patientDoctor = selectedPatient ? doctors.find(d => d.id === selectedPatient.assignedDoctorId) : null;
 
   const hospitalTotalValue = selectedHospitalId ? sales.filter(s => s.hospitalId === selectedHospitalId && s.repId === rep.id).reduce((acc, s) => acc + (s.amount || 0), 0) : 0;
+
+  const hospitalSales = useMemo(() => {
+    if (!selectedHospitalId) return [];
+    return sales.filter(s => s.hospitalId === selectedHospitalId && s.repId === rep.id);
+  }, [selectedHospitalId, sales, rep.id]);
+
+  const medicineBreakdown = useMemo(() => {
+    const breakdown: Record<string, { name: string, amount: number, qty: number, category: string }> = {};
+    hospitalSales.forEach(s => {
+      const med = medicines.find(m => m.id === s.medicineId);
+      if (med) {
+        if (!breakdown[s.medicineId]) {
+          breakdown[s.medicineId] = { name: med.name, amount: 0, qty: 0, category: med.category };
+        }
+        breakdown[s.medicineId].amount += s.amount;
+        breakdown[s.medicineId].qty += s.quantity;
+      }
+    });
+    return Object.values(breakdown).sort((a, b) => b.amount - a.amount);
+  }, [hospitalSales, medicines]);
+
+  const doctorBreakdown = useMemo(() => {
+    const breakdown: Record<string, { name: string, amount: number, visits: number, specialty: string }> = {};
+    hospitalSales.forEach(s => {
+      const doc = doctors.find(d => d.id === s.doctorId);
+      if (doc) {
+        if (!breakdown[s.doctorId]) {
+          breakdown[s.doctorId] = { name: doc.name, amount: 0, visits: 0, specialty: doc.specialty };
+        }
+        breakdown[s.doctorId].amount += s.amount;
+        breakdown[s.doctorId].visits += 1;
+      }
+    });
+    return Object.values(breakdown).sort((a, b) => b.amount - a.amount);
+  }, [hospitalSales, doctors]);
+
+  
+  const filteredMeetings = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    
+    // Helper for week range
+    const getWeekRange = () => {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return { start: start.toISOString().split("T")[0], end: end.toISOString().split("T")[0] };
+    };
+
+    const week = getWeekRange();
+    const monthStr = now.toISOString().slice(0, 7); // YYYY-MM
+
+    return appointments.filter(m => {
+      if (m.staffName !== rep.name) return false;
+      
+      if (filterRange === "today") return m.date === todayStr;
+      if (filterRange === "week") return m.date >= week.start && m.date <= week.end;
+      if (filterRange === "month") return m.date.startsWith(monthStr);
+      
+      return true;
+    });
+  }, [filterRange, rep.name, appointments]);
+
+  const startOfWeek = useMemo(() => {
+    const d = new Date(currentDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [currentDate]);
+
+  const shiftWeek = (weeks: number) => {
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(currentDate.getDate() + weeks * 7);
+    setCurrentDate(nextDate);
+  };
 
   return (
     <div className="space-y-8 pb-20 relative">
@@ -108,13 +221,280 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
         </div>
       </header>
 
-      {/* Hospital Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      {/* Main Content Grid: 70/30 Split */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
+        {/* LEFT COLUMN (70% or 100%): Appointments & Field Activity Below */}
+        <div className={cn("space-y-8 transition-all duration-500", isExpanded ? "lg:col-span-10" : "lg:col-span-7")}>
+          {/* CALENDAR LEGEND */}
+          <div className="flex flex-wrap items-center gap-6 px-6 py-3 bg-secondary/10 border border-border/50 rounded-[10px]">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status Key:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-[10px] font-black uppercase text-muted-foreground/80">Scheduled</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span className="text-[10px] font-black uppercase text-muted-foreground/80">Visited</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="text-[10px] font-black uppercase text-muted-foreground/80">Pending Approval</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-black uppercase text-muted-foreground/80">Completed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <span className="text-[10px] font-black uppercase text-muted-foreground/80">Cancelled</span>
+            </div>
+          </div>
+
+          {/* Staff Appointments Table */}
+          <div className="bg-card border border-border rounded-[10px] card-shadow overflow-hidden">
+            <div className="p-6 border-b border-border bg-secondary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight">Staff Appointments</h3>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Scheduled itinerary and operational audits for {rep.name}</p>
+                </div>
+                <div className="flex bg-white/50 p-1 rounded-[10px] border border-border hidden md:flex">
+                  <button
+                    onClick={() => setViewType("table")}
+                    className={cn(
+                      "p-2 rounded-[8px] transition-all",
+                      viewType === "table" ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:bg-secondary/40"
+                    )}
+                  >
+                    <LayoutList size={14} />
+                  </button>
+                  <button
+                    onClick={() => setViewType("calendar")}
+                    className={cn(
+                      "p-2 rounded-[8px] transition-all",
+                      viewType === "calendar" ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:bg-secondary/40"
+                    )}
+                  >
+                    <CalendarDays size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-border mx-1 my-auto" />
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="p-2 rounded-[8px] text-muted-foreground hover:bg-secondary/40 transition-all"
+                    title={isExpanded ? "Collapse View" : "Full Table View"}
+                  >
+                    {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {viewType === "table" ? (
+                <div className="flex bg-white/50 p-1 rounded-[10px] border border-border shrink-0">
+                  {(["today", "week", "month"] as const).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setFilterRange(r)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-[8px] text-[10px] font-black uppercase tracking-widest transition-all",
+                        filterRange === r ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:bg-secondary/40"
+                      )}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-white border border-border rounded-[8px] overflow-hidden">
+                    <button onClick={() => shiftWeek(-1)} className="p-1.5 hover:bg-secondary border-r border-border transition-colors"><ChevronLeft size={16} /></button>
+                    <div className="px-3 flex items-center font-black text-[9px] uppercase tracking-widest min-w-[120px] justify-center">
+                      {startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(new Date(startOfWeek).setDate(startOfWeek.getDate() + 6)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                    <button onClick={() => shiftWeek(1)} className="p-1.5 hover:bg-secondary border-l border-border transition-colors"><ChevronRight size={16} /></button>
+                  </div>
+                  <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 bg-secondary/50 border border-border rounded-[8px] text-[9px] font-black uppercase tracking-widest hover:bg-secondary transition-all">Today</button>
+                </div>
+              )}
+            </div>
+
+            {viewType === "table" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-secondary/20">
+                      <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground">Date & Time</th>
+                      <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground">Title / Type</th>
+                      <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground">Facility</th>
+                      <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredMeetings.length > 0 ? (
+                      filteredMeetings.map((app, i) => (
+                        <tr 
+                          key={`row-${app.id}-${i}`} 
+                          onClick={() => setSelectedAppointment(app)}
+                          className="hover:bg-secondary/10 transition-colors cursor-pointer group"
+                        >
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-sm">{new Date(app.date).toLocaleDateString()}</p>
+                            <p className="text-[10px] text-muted-foreground font-black uppercase">{app.hour}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-black text-xs uppercase tracking-tight group-hover:text-primary transition-colors">{app.title}</p>
+                            <span className="text-[8px] font-black px-1.5 py-0.5 bg-muted rounded uppercase tracking-tighter mt-1 inline-block">{app.type}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-xs font-bold">{app.entityName}</p>
+                            <p className="text-[9px] text-muted-foreground uppercase">{app.location}</p>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className={cn(
+                              "px-3 py-1 rounded-[6px] text-[9px] font-black uppercase border",
+                              app.status === "completed" || app.status === "visited" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-primary/10 text-primary border-primary/20"
+                            )}>
+                              {app.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-20 text-center">
+                          <div className="flex flex-col items-center opacity-40">
+                            <Clock size={32} className="mb-2" />
+                            <p className="text-sm font-black uppercase tracking-widest">No activities found</p>
+                            <p className="text-[10px]">Try expanding your filter range</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+                <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border bg-secondary/10 min-w-[1000px]">
+                  <div className="p-4 border-r border-border flex items-center justify-center"><Clock size={14} className="text-muted-foreground" /></div>
+                  {DAYS.map((day, idx) => {
+                    const date = new Date(startOfWeek);
+                    date.setDate(startOfWeek.getDate() + idx);
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    return (
+                      <div key={day} className={cn("p-4 text-center border-r last:border-0 border-border", isToday ? "bg-primary/5" : "")}>
+                        <p className="font-black text-[9px] uppercase tracking-widest text-muted-foreground">{day}</p>
+                        <p className={cn("text-sm font-black", isToday ? "text-primary" : "")}>{date.getDate()}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="min-w-[1000px]">
+                  {HOURS.map((hour) => (
+                    <div key={hour} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-0 min-h-[100px]">
+                      <div className="p-4 border-r border-border text-[9px] font-black text-muted-foreground flex items-center justify-center bg-secondary/5">{hour}</div>
+                      {DAYS.map((_, dayIdx) => {
+                        const dayDate = new Date(startOfWeek);
+                        dayDate.setDate(startOfWeek.getDate() + dayIdx);
+                        const dayDateStr = dayDate.toISOString().split('T')[0];
+                        const hourApps = filteredMeetings.filter(a => a.date === dayDateStr && a.hour === hour);
+                        return (
+                          <div key={dayIdx} className="p-1 border-r last:border-0 border-border relative hover:bg-secondary/5 group transition-all min-h-[100px]">
+                            <div className="flex flex-col gap-1">
+                              {hourApps.map((app, i) => (
+                                <div 
+                                  key={`cal-${app.id}-${i}`} 
+                                  onClick={() => setSelectedAppointment(app)}
+                                  className={cn(
+                                    "p-2 rounded-[6px] shadow-sm text-[9px] font-bold cursor-pointer hover:scale-[1.02] transition-all border",
+                                    STATUS_COLORS[app.status] || "bg-secondary/10 text-muted-foreground border-border"
+                                  )}
+                                >
+                                  <p className="uppercase leading-tight mb-0.5">{app.title}</p>
+                                  <p className="opacity-70 text-[8px] truncate">{app.entityName}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setAddPreFill({ date: dayDateStr, hour: hour });
+                                setIsAddModalOpen(true);
+                              }}
+                              className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:scale-110 active:scale-95"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Field Activity (Below Appointments Table) */}
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <ClipboardList className="text-primary" size={20} /> Field Activity Log
+            </h3>
+            <div className="bg-card border border-border rounded-[10px] card-shadow overflow-hidden">
+              <div className="divide-y divide-border">
+                {activityItems.map((sale) => {
+                  const med = medicines.find(m => m.id === sale.medicineId);
+                  const hospital = hospitals.find(h => h.id === sale.hospitalId);
+                  const doctor = doctors.find(d => d.id === sale.doctorId);
+                  return (
+                    <div key={sale.id} className="p-5 hover:bg-primary/[0.03] transition-all group">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black group-hover:text-primary transition-colors">{med?.name}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Stethoscope size={10} className="text-primary" />
+                            <span className="text-[10px] font-black uppercase text-primary/80 tracking-tighter">Visit with {doctor?.name}</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-primary">{(sale.amount || 0).toLocaleString()} <span className="text-[9px] opacity-60">AED</span></p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin size={10} className="text-emerald-500" />
+                          <p className="text-[10px] text-muted-foreground font-bold truncate">
+                            {hospital?.name} · {hospital?.area}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <CalendarIcon size={10} className="text-blue-500" />
+                          <p className="text-[10px] text-muted-foreground font-black opacity-80 uppercase tracking-tighter">
+                            {new Date(sale.date).toLocaleDateString()} at {sale.time}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {!showAllActivity && mySales.length > 6 && (
+                <button 
+                  onClick={() => setShowAllActivity(true)}
+                  className="w-full py-4 bg-secondary/20 hover:bg-secondary/40 text-[10px] font-black uppercase tracking-widest text-primary transition-all border-t border-border"
+                >
+                  View Full Activity Log ({mySales.length - 6} more items)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (30%): Assigned Hospitals */}
+        {!isExpanded && (
+          <div className="lg:col-span-3 space-y-6">
           <h3 className="text-xl font-bold flex items-center gap-2">
             <HospitalIcon className="text-primary" size={20} /> Assigned Hospitals
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {myHospitals.map((hospital) => (
               <motion.div 
                 key={hospital.id} 
@@ -140,62 +520,9 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
             ))}
           </div>
         </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <ClipboardList className="text-primary" size={20} /> Field Activity Log
-          </h3>
-          <div className="bg-card border border-border rounded-[10px] card-shadow overflow-hidden">
-            <div className="divide-y divide-border">
-              {activityItems.map((sale) => {
-                const med = medicines.find(m => m.id === sale.medicineId);
-                const hospital = hospitals.find(h => h.id === sale.hospitalId);
-                const doctor = doctors.find(d => d.id === sale.doctorId);
-                return (
-                  <div key={sale.id} className="p-5 hover:bg-primary/[0.03] transition-all group">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-200 group-hover:text-primary transition-colors">{med?.name}</span>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Stethoscope size={10} className="text-primary" />
-                          <span className="text-[10px] font-black uppercase text-primary/80 tracking-tighter">Visit with {doctor?.name}</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black text-primary">{(sale.amount || 0).toLocaleString()} <span className="text-[9px] opacity-60">AED</span></p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={10} className="text-emerald-500" />
-                        <p className="text-[10px] text-muted-foreground font-bold truncate">
-                          {hospital?.name} · {hospital?.area}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <CalendarIcon size={10} className="text-blue-500" />
-                        <p className="text-[10px] text-muted-foreground font-black opacity-80 uppercase tracking-tighter">
-                          {new Date(sale.date).toLocaleDateString()} at {sale.time}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {!showAllActivity && mySales.length > 6 && (
-              <button 
-                onClick={() => setShowAllActivity(true)}
-                className="w-full py-4 bg-secondary/20 hover:bg-secondary/40 text-[10px] font-black uppercase tracking-widest text-primary transition-all border-t border-border"
-              >
-                View Full Activity Log ({mySales.length - 6} more items)
-              </button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* OVERLAY SPLIT LAYOUT */}
       <AnimatePresence>
         {selectedHospital && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-10">
@@ -235,7 +562,9 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
                   <div className="flex bg-white/50 p-1 rounded-[10px] border border-border">
                     <button onClick={() => setViewMode("doctors")} className={cn("flex-1 py-3 rounded-[10px] font-black text-[10px] uppercase tracking-widest transition-all", viewMode === "doctors" ? "bg-primary text-white shadow-lg" : "text-muted-foreground")}>Doctors</button>
                     <button onClick={() => setViewMode("patients")} className={cn("flex-1 py-3 rounded-[10px] font-black text-[10px] uppercase tracking-widest transition-all", viewMode === "patients" ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground")}>Patients</button>
+                    <button onClick={() => setViewMode("ledger")} className={cn("flex-1 py-3 rounded-[10px] font-black text-[10px] uppercase tracking-widest transition-all", viewMode === "ledger" ? "bg-amber-500 text-white shadow-lg" : "text-muted-foreground")}>Ledger</button>
                   </div>
+
 
                   <div className="space-y-2">
                     {viewMode === "doctors" ? (
@@ -245,15 +574,31 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
                           <ChevronRight size={16} />
                         </div>
                       ))
-                    ) : (
+                    ) : viewMode === "patients" ? (
                       hospitalPatients.map(pat => (
                         <div key={pat.id} onClick={() => setSelectedPatientId(pat.id)} className="p-4 rounded-[10px] border border-border bg-white/40 hover:border-emerald-500 transition-all cursor-pointer flex justify-between">
                           <p className="font-bold text-sm">{pat.name}</p>
                           <ChevronRight size={16} />
                         </div>
                       ))
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[10px]">
+                          <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Total Commercial Value</p>
+                          <p className="text-2xl font-black text-amber-700">{hospitalTotalValue.toLocaleString()} AED</p>
+                        </div>
+                        <div className="p-6 bg-blue-500/10 border border-blue-500/20 rounded-[10px]">
+                          <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Total Provisions</p>
+                          <p className="text-2xl font-black text-blue-700">{hospitalSales.length}</p>
+                        </div>
+                        <div className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-[10px]">
+                          <p className="text-[10px] font-black uppercase text-emerald-600 mb-1">Active Prescribers</p>
+                          <p className="text-2xl font-black text-emerald-700">{doctorBreakdown.length}</p>
+                        </div>
+                      </div>
                     )}
                   </div>
+
                 </div>
 
                 {/* RIGHT PANE */}
@@ -363,59 +708,131 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
                         </table>
                       </div>
                     </div>
-                  ) : viewMode === "patients" ? (
-                    <div className="space-y-8">
-                      <h4 className="text-3xl font-black">Facility Patients</h4>
-                      <div className="bg-card border border-border rounded-[10px] overflow-hidden">
-                        <table className="w-full text-left">
-                          <thead className="bg-emerald-50/50">
-                            <tr>
-                              <th className="p-6 text-[10px] font-black uppercase tracking-widest text-emerald-700">Patient</th>
-                              <th className="p-6 text-[10px] font-black uppercase tracking-widest text-emerald-700 text-center">Condition</th>
-                              <th className="p-6 text-[10px] font-black uppercase tracking-widest text-emerald-700 text-right">Physician</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {hospitalPatients.map(pat => {
-                              const doc = doctors.find(d => d.id === pat.assignedDoctorId);
-                              return (
-                                <tr 
-                                  key={pat.id} 
-                                  onClick={() => setSelectedPatientId(pat.id)}
-                                  className="hover:bg-emerald-50/30 transition-colors cursor-pointer group"
-                                >
-                                  <td className="p-6">
-                                    <div className="flex items-center gap-4">
-                                      <div className={cn(
-                                        "w-10 h-10 rounded-[10px] flex items-center justify-center font-black transition-colors",
-                                        pat.status === "active" ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
-                                      )}>
-                                        {pat.name[0]}
-                                      </div>
-                                      <div>
-                                        <p className="font-bold text-sm">{pat.name}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <div className={cn("w-2 h-2 rounded-full", pat.status === "active" ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} />
-                                          <span className={cn("text-[9px] font-black uppercase tracking-tighter", pat.status === "active" ? "text-emerald-600" : "text-slate-400")}>
-                                            {pat.status}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="p-6 text-center text-xs font-bold text-muted-foreground">{pat.age}Y · {pat.gender}</td>
-                                  <td className="p-6 text-center">
-                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-full uppercase">{pat.condition}</span>
-                                  </td>
-                                  <td className="p-6 text-right font-bold text-sm">{(doctors.find(d => d.id === pat.assignedDoctorId))?.name}</td>
+                  ) : viewMode === "ledger" ? (
+                    <div className="space-y-10">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-3xl font-black">Commercial Performance Ledger</h4>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 rounded-[10px] border border-amber-500/20">
+                          <TrendingUp size={18} className="text-amber-600" />
+                          <span className="text-sm font-black text-amber-700">Audit Status: Verified</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Medicine Breakdown */}
+                        <div className="bg-card border border-border rounded-[10px] overflow-hidden shadow-sm">
+                          <div className="p-6 border-b border-border bg-secondary/5 flex items-center justify-between">
+                            <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground">Medicine Revenue Split</h5>
+                            <PackageCheck size={16} className="text-primary" />
+                          </div>
+                          <div className="p-0">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="bg-secondary/10 border-b border-border">
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground">Medicine</th>
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground text-center">Qty</th>
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground text-right">Value</th>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                {medicineBreakdown.map((item) => (
+                                  <tr key={item.name} className="hover:bg-secondary/5 transition-colors">
+                                    <td className="px-6 py-4">
+                                      <p className="text-xs font-bold">{item.name}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">{item.category}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-black text-xs">{item.qty}</td>
+                                    <td className="px-6 py-4 text-right">
+                                      <p className="text-xs font-black text-primary">{item.amount.toLocaleString()}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground">AED</p>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Doctor Breakdown */}
+                        <div className="bg-card border border-border rounded-[10px] overflow-hidden shadow-sm">
+                          <div className="p-6 border-b border-border bg-secondary/5 flex items-center justify-between">
+                            <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground">Prescriber Engagement</h5>
+                            <Stethoscope size={16} className="text-emerald-500" />
+                          </div>
+                          <div className="p-0">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="bg-secondary/10 border-b border-border">
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground">Physician</th>
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground text-center">Orders</th>
+                                  <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground text-right">Value</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                {doctorBreakdown.map((item) => (
+                                  <tr key={item.name} className="hover:bg-secondary/5 transition-colors">
+                                    <td className="px-6 py-4">
+                                      <p className="text-xs font-bold">{item.name}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">{item.specialty}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-black text-xs">{item.visits}</td>
+                                    <td className="px-6 py-4 text-right">
+                                      <p className="text-xs font-black text-emerald-600">{item.amount.toLocaleString()}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground">AED</p>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Recent Transactions in Ledger */}
+                      <div className="bg-card border border-border rounded-[10px] overflow-hidden shadow-sm">
+                        <div className="p-6 border-b border-border bg-secondary/5 flex items-center justify-between">
+                          <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground">Recent Commercial Activity</h5>
+                          <History size={16} className="text-amber-500" />
+                        </div>
+                        <div className="p-0">
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="bg-secondary/10 border-b border-border">
+                                <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground">Date / Time</th>
+                                <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground">Description</th>
+                                <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground">Qty</th>
+                                <th className="px-6 py-3 text-[9px] font-black uppercase text-muted-foreground text-right">Transaction Value</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {hospitalSales.slice(0, 10).map((sale) => {
+                                const med = medicines.find(m => m.id === sale.medicineId);
+                                const doc = doctors.find(d => d.id === sale.doctorId);
+                                return (
+                                  <tr key={sale.id} className="hover:bg-secondary/5 transition-colors">
+                                    <td className="px-6 py-4">
+                                      <p className="text-xs font-bold">{new Date(sale.date).toLocaleDateString()}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground">{sale.time}</p>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <p className="text-xs font-black text-primary uppercase tracking-tight">{med?.name}</p>
+                                      <p className="text-[9px] font-medium text-muted-foreground">Prescribed by {doc?.name}</p>
+                                    </td>
+                                    <td className="px-6 py-4 font-black text-xs">{sale.quantity}</td>
+                                    <td className="px-6 py-4 text-right">
+                                      <p className="text-xs font-black text-primary">{sale.amount.toLocaleString()}</p>
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground">AED</p>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   ) : null}
+
                 </div>
               </div>
             </motion.div>
@@ -540,6 +957,36 @@ export function RepDetailedPerformance({ rep, onBack }: { rep: SalesRep, onBack:
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Appointment Detail Modals for the new table */}
+      <AnimatePresence>
+        {selectedAppointment && (
+          <AppointmentDetailModal
+            meeting={selectedAppointment}
+            role="Manager"
+            onClose={() => setSelectedAppointment(null)}
+            onLogVisit={() => {
+              setLoggingAppointment(selectedAppointment);
+              setSelectedAppointment(null);
+            }}
+          />
+        )}
+        {loggingAppointment && (
+          <VisitCompletionForm
+            meeting={loggingAppointment}
+            onClose={() => setLoggingAppointment(null)}
+          />
+        )}
+        {isAddModalOpen && (
+          <NewAuditForm 
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setAddPreFill(null);
+            }} 
+            initialData={addPreFill ? { ...addPreFill } : {}}
+          />
         )}
       </AnimatePresence>
     </div>

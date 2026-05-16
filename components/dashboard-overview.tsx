@@ -138,8 +138,8 @@ export function DashboardOverview({ mockUser }: { mockUser?: { name: string, rol
           <div className="divide-y divide-border">
             {todaysFocus.slice(0, 6).map((app, i) => (
               <motion.div
-                key={app.id}
-                initial={{ opacity: 0, y: 10 }}
+                key={`${app.id}-${i}`}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 onClick={() => setSelectedMeeting(app)}

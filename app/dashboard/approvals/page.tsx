@@ -17,19 +17,34 @@ import {
   Coffee,
   Home,
   MoreHorizontal,
-  Search
+  Search,
+  Gift,
+  Building2,
+  Pill,
+  LayoutGrid
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/context/auth-context";
-import { useData, ExpenseRequest } from "@/lib/context/data-context";
+import { useData, ExpenseRequest, Appointment } from "@/lib/context/data-context";
 import { cn } from "@/lib/utils";
+import { AppointmentDetailModal } from "@/components/appointment-detail-modal";
+import { GiftDetailModal } from "@/components/gift-detail-modal";
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
-  const { expenses, addExpense, updateExpenseStatus } = useData();
+  const { 
+    expenses, updateExpenseStatus, 
+    appointments, updateAppointment,
+    giftMeetups, updateGiftMeetupStatus,
+    approveSamples, medicines
+  } = useData();
   const isManager = user?.role === "Manager";
 
+  const [activeTab, setActiveTab] = useState<"all" | "expenses" | "visits" | "gifts" | "samples">("all");
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedGift, setSelectedGift] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     type: "travel" as const,
     amount: "",
@@ -39,31 +54,34 @@ export default function ApprovalsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addExpense({
-      staffId: "u-current",
-      staffName: user?.name || "Anonymous",
-      type: formData.type,
-      amount: parseFloat(formData.amount),
-      date: formData.date,
-      description: formData.description
-    });
+    // In this unified view, new claims are handled by context
     setIsAdding(false);
-    setFormData({
-      type: "travel",
-      amount: "",
-      date: new Date().toISOString().split('T')[0],
-      description: ""
-    });
   };
 
   const myExpenses = expenses.filter(e => e.staffName === user?.name);
-  const pendingForManager = expenses.filter(e => e.status === "pending");
+  const pendingExpenses = expenses.filter(e => e.status === "pending");
+  const pendingVisits = appointments.filter(a => a.status === "pending_approval");
+  const pendingGifts = giftMeetups.filter(g => g.status === "pending_approval");
+  const pendingSamples = appointments.filter(a => a.freeSamples && a.freeSamples.some(s => !s.approved));
+
+  // Combined Pending List for "All" tab
+  const allPending = [
+    ...pendingExpenses.map(e => ({ ...e, category: 'Expense', title: e.description })),
+    ...pendingVisits.map(v => ({ ...v, category: 'Visit', item: v.title })),
+    ...pendingGifts.map(g => ({ ...g, category: 'Gift/Meetup', title: g.item })),
+    ...pendingSamples.map(s => ({ ...s, category: 'Samples', title: 'Clinical Sample Provision' }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const stats = [
     { label: "Total Reimbursed", value: "AED 4,250", icon: Wallet, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-    { label: "Pending Claims", value: isManager ? pendingForManager.length : myExpenses.filter(e => e.status === "pending").length, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { label: "Action Required", value: isManager ? allPending.length : myExpenses.filter(e => e.status === "pending").length, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
     { label: "Monthly Growth", value: "+12.5%", icon: TrendingUp, color: "text-blue-500", bg: "bg-blue-500/10" },
   ];
+
+  const handleRowClick = (item: any) => {
+    if (item.category === 'Visit' || item.category === 'Samples') setSelectedAppointment(item);
+    if (item.category === 'Gift/Meetup') setSelectedGift(item);
+  };
 
   return (
     <div className="space-y-12 pb-20">
@@ -89,7 +107,6 @@ export default function ApprovalsPage() {
         )}
       </header>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, i) => (
           <motion.div
@@ -111,16 +128,17 @@ export default function ApprovalsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Main Tracker Table */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="flex items-center justify-between">
+        <div className="lg:col-span-12 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
-              <Receipt size={24} className="text-primary" /> {isManager ? "Pending Authorizations" : "My Expense Tracker"}
+              <ShieldCheck size={24} className="text-primary" /> {isManager ? "Pending Authorizations" : "My Request Status"}
             </h3>
-            <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-lg border border-border">
-              <button className="px-4 py-1.5 text-[10px] font-black uppercase bg-card rounded-md shadow-sm border border-border">All</button>
-              <button className="px-4 py-1.5 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground">Pending</button>
-              <button className="px-4 py-1.5 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground">Approved</button>
+            <div className="flex bg-secondary/50 p-1 rounded-lg border border-border overflow-x-auto max-w-full no-scrollbar">
+              <button onClick={() => setActiveTab("all")} className={cn("px-6 py-2 text-[10px] font-black uppercase rounded-md transition-all whitespace-nowrap", activeTab === "all" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}>All Requests</button>
+              <button onClick={() => setActiveTab("expenses")} className={cn("px-6 py-2 text-[10px] font-black uppercase rounded-md transition-all whitespace-nowrap", activeTab === "expenses" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}>Expenses</button>
+              <button onClick={() => setActiveTab("visits")} className={cn("px-6 py-2 text-[10px] font-black uppercase rounded-md transition-all whitespace-nowrap", activeTab === "visits" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}>Visit Reports</button>
+              <button onClick={() => setActiveTab("gifts")} className={cn("px-6 py-2 text-[10px] font-black uppercase rounded-md transition-all whitespace-nowrap", activeTab === "gifts" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}>Gifts & Meetups</button>
+              <button onClick={() => setActiveTab("samples")} className={cn("px-6 py-2 text-[10px] font-black uppercase rounded-md transition-all whitespace-nowrap", activeTab === "samples" ? "bg-white shadow-sm text-primary" : "text-muted-foreground")}>Samples</button>
             </div>
           </div>
 
@@ -129,80 +147,70 @@ export default function ApprovalsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-secondary/10">
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Claim Details</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Amount</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Status</th>
-                    {isManager && <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Action</th>}
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Log Description & Type</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Staff & Facility</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Value / Qty</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {(isManager ? pendingForManager : myExpenses).map((exp, i) => (
-                    <motion.tr 
-                      key={exp.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="group hover:bg-secondary/30 transition-all"
-                    >
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-[10px] bg-secondary/50 border border-border flex items-center justify-center text-muted-foreground shrink-0 group-hover:scale-110 transition-transform">
-                            {exp.type === 'travel' && <Plane size={18} />}
-                            {exp.type === 'meal' && <Coffee size={18} />}
-                            {exp.type === 'accommodation' && <Home size={18} />}
-                            {exp.type === 'other' && <Receipt size={18} />}
-                          </div>
-                          <div>
-                            <p className="text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors">{exp.description}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2 mt-1">
-                              <Calendar size={12} /> {exp.date} · <User size={12} /> {exp.staffName}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-center font-black tabular-nums text-sm">
-                        AED {exp.amount.toLocaleString()}
-                      </td>
-                      <td className="px-8 py-6 text-center">
-                        <span className={cn(
-                          "inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase",
-                          exp.status === 'approved' ? "bg-emerald-500/10 text-emerald-600" :
-                          exp.status === 'rejected' ? "bg-rose-500/10 text-rose-600" :
-                          "bg-amber-500/10 text-amber-600"
-                        )}>
-                          {exp.status === 'approved' && <CheckCircle2 size={12} />}
-                          {exp.status === 'rejected' && <XCircle size={12} />}
-                          {exp.status === 'pending' && <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
-                          {exp.status}
-                        </span>
-                      </td>
-                      {isManager && (
-                        <td className="px-8 py-6 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => updateExpenseStatus(exp.id, 'approved')}
-                              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:scale-110 transition-all active:scale-95"
-                            >
-                              <CheckCircle2 size={18} />
-                            </button>
-                            <button 
-                              onClick={() => updateExpenseStatus(exp.id, 'rejected')}
-                              className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 hover:scale-110 transition-all active:scale-95"
-                            >
-                              <XCircle size={18} />
-                            </button>
+                  {(() => {
+                    let displayItems: any[] = [];
+                    if (activeTab === "all") displayItems = allPending;
+                    else if (activeTab === "expenses") displayItems = pendingExpenses.map(e => ({ ...e, category: 'Expense', title: e.description }));
+                    else if (activeTab === "visits") displayItems = pendingVisits.map(v => ({ ...v, category: 'Visit', title: v.title }));
+                    else if (activeTab === "gifts") displayItems = pendingGifts.map(g => ({ ...g, category: 'Gift/Meetup', title: g.item }));
+                    else if (activeTab === "samples") displayItems = pendingSamples.map(s => ({ ...s, category: 'Samples', title: 'Clinical Sample Provision' }));
+
+                    return displayItems.map((item: any, i) => (
+                      <motion.tr 
+                        key={`${item.category}-${item.id}`} 
+                        initial={{ opacity: 0, x: -10 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        transition={{ delay: i * 0.05 }} 
+                        onClick={() => handleRowClick(item)}
+                        className="group hover:bg-secondary/30 transition-all cursor-pointer"
+                      >
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-10 h-10 rounded-[10px] flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform shadow-lg",
+                              item.category === 'Expense' ? "bg-amber-500" : (item.category === 'Visit' ? "bg-primary" : (item.category === 'Samples' ? "bg-emerald-500" : "bg-blue-600"))
+                            )}>
+                              {item.category === 'Expense' ? <Wallet size={18} /> : (item.category === 'Visit' ? <ShieldCheck size={18} /> : (item.category === 'Samples' ? <Pill size={18} /> : <Gift size={18} />))}
+                            </div>
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors">{item.title || item.description || item.item}</p>
+                              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1 opacity-60">{item.category} · {item.date}</p>
+                            </div>
                           </div>
                         </td>
-                      )}
-                    </motion.tr>
-                  ))}
-                  {(isManager ? pendingForManager : myExpenses).length === 0 && (
+                        <td className="px-8 py-6">
+                          <p className="text-xs font-bold">{item.staffName}</p>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground mt-0.5 tracking-widest">{item.entityName || item.hospitalName || "Field Location"}</p>
+                        </td>
+                        <td className="px-8 py-6 text-center font-black tabular-nums text-sm">
+                          {item.amount ? `AED ${item.amount.toLocaleString()}` : (item.cost ? `AED ${item.cost.toLocaleString()}` : (item.freeSamples ? `${item.freeSamples.filter((s:any) => !s.approved).reduce((sum:number, s:any) => sum + s.qty, 0)} Units` : "Report"))}
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRowClick(item);
+                            }}
+                            className="px-6 py-2.5 bg-primary/10 text-primary border border-primary/20 rounded-[10px] text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm"
+                          >
+                            Review & Audit
+                          </button>
+                        </td>
+                      </motion.tr>
+                    ));
+                  })()}
+                  {allPending.length === 0 && ( activeTab === "all" ) && (
                     <tr>
                       <td colSpan={4} className="px-8 py-20 text-center">
-                        <div className="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground opacity-30">
-                          <Receipt size={32} />
-                        </div>
-                        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">No active claims found</p>
+                        <div className="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground opacity-30"><ShieldCheck size={32} /></div>
+                        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Clear Workspace: No pending requests</p>
                       </td>
                     </tr>
                   )}
@@ -211,140 +219,96 @@ export default function ApprovalsPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Info / Insights Panel */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-card border border-border rounded-[10px] p-8 card-shadow relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
-            <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-primary" /> Policy Overview
-            </h3>
-            <div className="space-y-6 relative z-10">
-              <div className="p-4 bg-secondary/30 rounded-[10px] border border-border">
-                <p className="text-[10px] font-black uppercase text-primary mb-1">Travel Allowance</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">Standard mileage reimbursement rate is set at AED 2.50 per km for all territories.</p>
-              </div>
-              <div className="p-4 bg-secondary/30 rounded-[10px] border border-border">
-                <p className="text-[10px] font-black uppercase text-primary mb-1">Meal Caps</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">Maximum daily meal expenditure restricted to AED 150 per representative.</p>
-              </div>
-              <div className="pt-4 flex items-center justify-between border-t border-border mt-6">
-                <span className="text-[10px] font-black uppercase text-muted-foreground">Audit Frequency</span>
-                <span className="text-[10px] font-black uppercase bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full">Weekly</span>
-              </div>
+      <div className="space-y-8 mt-12">
+        <div className="flex items-center gap-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="flex items-center gap-2 px-6 py-2 bg-secondary/30 rounded-full border border-border">
+            <ShieldCheck size={14} className="text-primary" />
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Strategic Authorizations Archive</h2>
+          </div>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+
+        <div className="bg-card border border-border rounded-[10px] overflow-hidden shadow-2xl shadow-black/5">
+          <div className="p-8 bg-secondary/5 border-b border-border flex justify-between items-center">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Process Log</p>
+              <h3 className="text-xl font-black">Historical Verification</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-full text-[9px] font-black uppercase"><CheckCircle2 size={12} /> Authorized</div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-600 rounded-full text-[9px] font-black uppercase"><XCircle size={12} /> Revoked</div>
             </div>
           </div>
 
-          <div className="bg-indigo-600 p-8 rounded-[10px] text-white shadow-2xl shadow-indigo-600/30 relative overflow-hidden">
-            <div className="absolute bottom-0 right-0 p-8 opacity-20">
-              <TrendingUp size={100} />
-            </div>
-            <h3 className="text-xl font-black mb-2">Automated Audit</h3>
-            <p className="text-xs text-indigo-100 uppercase font-black tracking-widest mb-6 opacity-80">AI Verification Engine</p>
-            <p className="text-sm font-medium mb-8 leading-relaxed opacity-90">Our backend system automatically verifies geolocation and clinic check-ins against claim dates to ensure high-fidelity audits.</p>
-            <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:gap-3 transition-all underline underline-offset-8">
-              Review Security protocols <ArrowRight size={14} />
-            </button>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-secondary/10">
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Type & Subject</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Beneficiary / Staff</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Value</th>
+                  <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right">Final Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {(() => {
+                  const historicalExpenses = expenses.filter(e => e.status !== "pending").map(e => ({ ...e, category: 'Expense' }));
+                  const historicalVisits = appointments.filter(a => a.status === "completed" || a.status === "cancelled").map(a => ({ ...a, category: 'Visit', amount: 0 }));
+                  const historicalGifts = giftMeetups.filter(g => g.status !== "pending_approval").map(g => ({ ...g, category: 'Gift/Meetup', amount: g.cost || 0 }));
+                  const historicalSamples = appointments.filter(a => a.freeSamples && a.freeSamples.every(s => s.approved)).map(a => ({ ...a, category: 'Samples', amount: 0 }));
+                  const allHistory = [...historicalExpenses, ...historicalVisits, ...historicalGifts, ...historicalSamples].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                  return allHistory.map((item: any, i) => (
+                    <motion.tr key={`${item.category}-${item.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="group hover:bg-secondary/20 transition-all">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-10 h-10 rounded-[10px] flex items-center justify-center text-white shadow-lg", item.category === 'Expense' ? "bg-amber-500" : (item.category === 'Visit' ? "bg-primary" : (item.category === 'Samples' ? "bg-emerald-500" : "bg-blue-600")))}>
+                            {item.category === 'Expense' ? <Wallet size={18} /> : (item.category === 'Visit' ? <ShieldCheck size={18} /> : (item.category === 'Samples' ? <Pill size={18} /> : <Gift size={18} />))}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black uppercase tracking-tight">{item.description || item.title || item.item || "Provision Log"}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{item.category} · {item.date}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-xs font-bold">{item.staffName}</p>
+                        <p className="text-[9px] font-black uppercase text-muted-foreground mt-0.5 tracking-widest">{item.hospitalName || item.entityName || "Medical Facility"}</p>
+                      </td>
+                      <td className="px-8 py-6 text-center font-black tabular-nums text-sm">{item.amount > 0 ? `AED ${item.amount.toLocaleString()}` : "—"}</td>
+                      <td className="px-8 py-6 text-right">
+                        <span className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest", (item.status === 'approved' || item.status === 'completed' || item.category === 'Samples') ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>
+                          {(item.status === 'approved' || item.status === 'completed' || item.category === 'Samples') ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                          {item.status?.replace('_', ' ') || 'Authorized'}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      {/* New Claim Modal */}
       <AnimatePresence>
-        {isAdding && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsAdding(false)}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-card w-full max-w-xl rounded-[10px] shadow-2xl border border-border p-10 flex flex-col"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-2xl font-black tracking-tight">File Expense Claim</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1">Field Operation Resource Management</p>
-                </div>
-                <button 
-                  onClick={() => setIsAdding(false)}
-                  className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center hover:bg-secondary/70 transition-all"
-                >
-                  <MoreHorizontal size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Claim Category</label>
-                    <select 
-                      value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value as any})}
-                      className="w-full px-4 py-4 bg-secondary/30 border border-border rounded-[10px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer"
-                    >
-                      <option value="travel">Travel & Fuel</option>
-                      <option value="meal">Business Meal</option>
-                      <option value="accommodation">Accommodation</option>
-                      <option value="other">Operational Other</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Claim Amount (AED)</label>
-                    <input 
-                      required
-                      type="number"
-                      placeholder="0.00"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                      className="w-full px-4 py-4 bg-secondary/30 border border-border rounded-[10px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Occurrence Date</label>
-                  <input 
-                    required
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                    className="w-full px-4 py-4 bg-secondary/30 border border-border rounded-[10px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Justification & Details</label>
-                  <textarea 
-                    required
-                    placeholder="Provide specific operational reason for this claim..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-4 py-4 bg-secondary/30 border border-border rounded-[10px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all min-h-[120px] resize-none"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button 
-                    type="button" 
-                    onClick={() => setIsAdding(false)}
-                    className="flex-1 py-4 bg-secondary text-foreground rounded-[10px] font-black text-[10px] uppercase tracking-widest hover:bg-secondary/70 transition-all"
-                  >
-                    Discard Claim
-                  </button>
-                  <button 
-                    type="submit"
-                    className="flex-1 py-4 bg-primary text-primary-foreground rounded-[10px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-98 transition-all"
-                  >
-                    Submit for Approval
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+        {selectedAppointment && (
+          <AppointmentDetailModal 
+            meeting={selectedAppointment}
+            role="Manager"
+            onClose={() => setSelectedAppointment(null)}
+          />
+        )}
+        {selectedGift && (
+          <GiftDetailModal 
+            item={selectedGift}
+            onClose={() => setSelectedGift(null)}
+            onApprove={(id, comment) => updateGiftMeetupStatus(id, "approved", comment)}
+            onReject={(id, comment) => updateGiftMeetupStatus(id, "rejected", comment)}
+          />
         )}
       </AnimatePresence>
     </div>

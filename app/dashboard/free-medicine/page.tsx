@@ -120,7 +120,7 @@ export default function FreeMedicinePage() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 opacity-80 min-[1400px]:block hidden">
             Resource Deployment
           </h2>
-          <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">Free Provisions</h1>
+          <h1 className="text-4xl lg:text-6xl font-black tracking-tighter">Clinical Samples</h1>
           <p className="text-muted-foreground mt-4 font-medium text-lg max-w-2xl leading-relaxed">
             {isManager 
               ? "Comprehensive audit of field sample distributions and inventory depletion across all territories." 

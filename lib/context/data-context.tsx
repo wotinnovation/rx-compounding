@@ -1,4 +1,6 @@
 "use client";
+// Force rebuild to clear Turbopack cache
+
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
@@ -86,6 +88,7 @@ export interface ExpenseRequest {
   date: string;
   description: string;
   status: "pending" | "approved" | "rejected";
+  managerComment?: string;
 }
 
 export interface Appointment {
@@ -99,7 +102,7 @@ export interface Appointment {
   duration: string;
   description: string;
   contactPerson: string;
-  status: "scheduled" | "completed" | "cancelled" | "visited" | "closed" | "upcoming";
+  status: "scheduled" | "completed" | "cancelled" | "visited" | "closed" | "upcoming" | "pending_approval";
   hospitalName?: string;
   doctorName?: string;
   patientName?: string;
@@ -112,7 +115,24 @@ export interface Appointment {
   prescriptionUrl?: string;
   openingComments?: string;
   closingComments?: string;
+  managerComment?: string;
 }
+
+export interface GiftMeetup {
+  id: string;
+  staffName: string;
+  type: "gift" | "meetup";
+  item: string;
+  hospitalName: string;
+  doctorName: string;
+  quantity: number;
+  cost?: number;
+  date: string;
+  status: "pending_approval" | "approved" | "rejected";
+  managerComment?: string;
+  proofUrl?: string;
+}
+
 
 interface DataContextType {
   hospitals: Hospital[];
@@ -138,10 +158,15 @@ interface DataContextType {
   addAppointment: (app: Omit<Appointment, "id">) => void;
   updateAppointment: (id: string, updates: Partial<Appointment>) => void;
   addExpense: (expense: Omit<ExpenseRequest, "id" | "status">) => void;
-  updateExpenseStatus: (id: string, status: "approved" | "rejected") => void;
+  updateExpenseStatus: (id: string, status: "approved" | "rejected", comment?: string) => void;
   updateHospital: (id: string, updates: Partial<Hospital>) => void;
   deleteHospital: (id: string) => void;
+  giftMeetups: GiftMeetup[];
+  addGiftMeetup: (item: Omit<GiftMeetup, "id" | "status">) => void;
+  updateGiftMeetupStatus: (id: string, status: "approved" | "rejected", comment?: string) => void;
+  approveSamples: (appointmentId: string) => void;
 }
+
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -154,7 +179,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
+  const [giftMeetups, setGiftMeetups] = useState<GiftMeetup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const initialReps: SalesRep[] = [
     { id: "1", name: "Faisal Al Marzouqi", initials: "FM", role: "Sales Person", zone: "Deira · Al Nahda", status: "on route", pct: 71, visits: 15, planned: 20, doctorsDetailed: 14, totalDoctors: 18, targetAmount: 45000 },
@@ -354,15 +381,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const storedHospitals = localStorage.getItem("rx_hospitals_v5");
     const storedDoctors = localStorage.getItem("rx_doctors_v5");
     const storedPatients = localStorage.getItem("rx_patients_v5");
-    const storedReps = localStorage.getItem("rx_reps_v5");
+    const storedReps = localStorage.getItem("rx_reps_v4");
     const storedMedicines = localStorage.getItem("rx_medicines_v5");
     const storedSales = localStorage.getItem("rx_sales_v5");
     const storedAppointments = localStorage.getItem("rx_appointments_v5");
     const storedExpenses = localStorage.getItem("rx_expenses_v5");
+    const storedGiftMeetups = localStorage.getItem("rx_gift_meetups_v1");
 
     if (storedReps) {
       const parsed = JSON.parse(storedReps);
-      // Merge initialReps with stored ones to ensure new dummy data appears
       const merged = [...parsed];
       initialReps.forEach(initial => {
         if (!merged.find(r => r.id === initial.id)) {
@@ -385,11 +412,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     if (storedMedicines) {
       const parsed = JSON.parse(storedMedicines);
-      if (parsed.length < 5) {
-        currentMedicines = defaultMedicines;
-      } else {
-        currentMedicines = parsed;
-      }
+      if (parsed.length < 5) currentMedicines = defaultMedicines;
+      else currentMedicines = parsed;
     } else {
       currentMedicines = defaultMedicines;
     }
@@ -424,6 +448,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     else setAppointments(generateAppointments());
     
     if (storedExpenses) {
+      setGiftMeetups(JSON.parse(storedGiftMeetups || "[]"));
       setExpenses(JSON.parse(storedExpenses));
     } else {
       setExpenses([
@@ -434,6 +459,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         { id: "exp-5", staffId: "u5", staffName: "Saeed Al Tayer", type: "travel", amount: 480, date: "2026-05-10", description: "Monthly vehicle maintenance allowance", status: "approved" },
         { id: "exp-6", staffId: "u3", staffName: "Abdulla bin Rashid", type: "other", amount: 150, date: "2026-05-12", description: "Clinical brochure printing costs", status: "pending" },
         { id: "exp-7", staffId: "u6", staffName: "Omar Al Mansoori", type: "travel", amount: 310, date: "2026-05-13", description: "Inter-city travel (Dubai to Abu Dhabi)", status: "pending" },
+      ]);
+      
+      setGiftMeetups([
+        { id: "gm-1", staffName: "Muna Al Falasi", type: "gift", item: "Anatomy Reference Guide", hospitalName: "Bur Dubai Hospital", doctorName: "Dr. Ahmed Mahmoud", quantity: 2, cost: 450, date: "2026-05-10", status: "approved" },
+        { id: "gm-2", staffName: "Abdulla bin Rashid", type: "meetup", item: "Clinical Detailing Lunch", hospitalName: "City Heart Hospital", doctorName: "Dr. Ravi Nair", quantity: 5, cost: 350, date: "2026-05-12", status: "approved" },
+        { id: "gm-3", staffName: "Faisal Al Marzouqi", type: "gift", item: "Branded Prescription Pads", hospitalName: "Jumeirah Family Clinic", doctorName: "Dr. John Smith", quantity: 50, cost: 100, date: "2026-05-14", status: "pending_approval" },
       ]);
     }
 
@@ -450,8 +481,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("rx_sales_v5", JSON.stringify(sales));
       localStorage.setItem("rx_appointments_v5", JSON.stringify(appointments));
       localStorage.setItem("rx_expenses_v5", JSON.stringify(expenses));
+      localStorage.setItem("rx_gift_meetups_v1", JSON.stringify(giftMeetups));
     }
-  }, [hospitals, doctors, patients, reps, medicines, sales, appointments, expenses, isLoading]);
+  }, [hospitals, doctors, patients, reps, medicines, sales, appointments, expenses, giftMeetups, isLoading]);
+
 
   const togglePatientStatus = (patientId: string) => {
     setPatients(patients.map(p => p.id === patientId ? { ...p, status: p.status === "active" ? "inactive" : "active" } : p));
@@ -529,8 +562,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setExpenses([...expenses, newExpense]);
   };
 
-  const updateExpenseStatus = (id: string, status: "approved" | "rejected") => {
-    setExpenses(expenses.map(exp => exp.id === id ? { ...exp, status } : exp));
+  const updateExpenseStatus = (id: string, status: "approved" | "rejected", comment?: string) => {
+    setExpenses(expenses.map(exp => exp.id === id ? { ...exp, status, managerComment: comment } : exp));
   };
 
   const updateHospital = (id: string, updates: Partial<Hospital>) => {
@@ -541,18 +574,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setHospitals(hospitals.filter(h => h.id !== id));
   };
 
+  const addGiftMeetup = (item: Omit<GiftMeetup, "id" | "status">) => {
+    const newItem: GiftMeetup = {
+      ...item,
+      id: `gm-${Math.random().toString(36).substr(2, 9)}`,
+      status: "pending_approval"
+    };
+    setGiftMeetups([newItem, ...giftMeetups]);
+  };
+
+  const updateGiftMeetupStatus = (id: string, status: "approved" | "rejected", comment?: string) => {
+    setGiftMeetups(giftMeetups.map(item => item.id === id ? { ...item, status, managerComment: comment } : item));
+  };
+
+  const approveSamples = (appointmentId: string) => {
+    setAppointments(appointments.map(app => {
+      if (app.id === appointmentId && app.freeSamples) {
+        return {
+          ...app,
+          freeSamples: app.freeSamples.map(s => ({ ...s, approved: true }))
+        };
+      }
+      return app;
+    }));
+  };
+
   return (
     <DataContext.Provider value={{
-      hospitals, doctors, patients, reps, medicines, sales, appointments, expenses,
+      hospitals, doctors, patients, reps, medicines, sales, appointments, expenses, giftMeetups,
       addRep, addHospital, addDoctor, assignHospital, addSale, addPatient, togglePatientStatus,
       getRepSales, getHospitalDoctors, getHospitalPatients, getDoctorSales,
       addAppointment, updateAppointment, updateHospital, deleteHospital,
-      addExpense, updateExpenseStatus, isLoading
+      addExpense, updateExpenseStatus, addGiftMeetup, updateGiftMeetupStatus, approveSamples, isLoading
     }}>
       {children}
     </DataContext.Provider>
   );
 }
+
 
 export function useData() {
   const context = useContext(DataContext);

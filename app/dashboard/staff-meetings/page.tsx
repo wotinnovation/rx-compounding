@@ -33,6 +33,7 @@ import { STAFF_MEETINGS as DUMMY_MEETINGS, STAFF_UPCOMING } from "@/lib/data/sta
 // ─── Status config ───────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType; pill: string }> = {
   visited:   { label: "Visited",   icon: Eye,         color: "bg-blue-500",    pill: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  pending_approval: { label: "Pending Approval", icon: Clock, color: "bg-amber-500", pill: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
   completed: { label: "Completed", icon: CheckCircle2, color: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
   closed:    { label: "Closed",    icon: AlertCircle,  color: "bg-slate-500",   pill: "bg-slate-500/10 text-slate-400 border-slate-500/20" },
   cancelled: { label: "Cancelled", icon: Ban,          color: "bg-rose-500",    pill: "bg-rose-500/10 text-rose-500 border-rose-500/20" },
@@ -43,7 +44,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 const ROWS_PER_PAGE = 10;
 
 export default function StaffMeetingsPage() {
-  const { addAppointment } = useData();
+  const { appointments, addAppointment } = useData();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -61,23 +62,27 @@ export default function StaffMeetingsPage() {
     type: "meeting" as Appointment["type"],
   });
 
+  const myAppointments = useMemo(() => {
+    return appointments.filter(a => a.staffName === user?.name || !a.staffName);
+  }, [appointments, user]);
+
   const filtered = useMemo(() => {
-    return DUMMY_MEETINGS.filter(m => {
+    return myAppointments.filter(m => {
       const q = searchQuery.toLowerCase();
       const matchSearch = m.title.toLowerCase().includes(q) || m.entityName.toLowerCase().includes(q);
       const matchStatus = statusFilter === "all" || m.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [searchQuery, statusFilter]);
+  }, [myAppointments, searchQuery, statusFilter]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
   const currentRows = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: DUMMY_MEETINGS.length };
-    Object.keys(STATUS_CONFIG).forEach(s => { c[s] = DUMMY_MEETINGS.filter(m => m.status === s).length; });
+    const c: Record<string, number> = { all: myAppointments.length };
+    Object.keys(STATUS_CONFIG).forEach(s => { c[s] = myAppointments.filter(m => m.status === s).length; });
     return c;
-  }, []);
+  }, [myAppointments]);
 
   // ── Role Guard: Managers are redirected to their own dashboard ───────────────
   useEffect(() => {
@@ -190,7 +195,7 @@ export default function StaffMeetingsPage() {
                 const StatusIcon = cfg.icon;
                 return (
                   <motion.tr
-                    key={m.id}
+                    key={`${m.id}-${idx}`} 
                     initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.03 }}
                     className="group hover:bg-secondary/20 transition-colors cursor-pointer"
                     onClick={() => setSelectedMeeting(m)}
