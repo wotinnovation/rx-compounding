@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/context/auth-context";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Mail, Lock, ArrowRight, Shield, TrendingUp, BarChart3, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -10,12 +10,12 @@ import Image from "next/image";
 const PRIMARY = "#59b4b3";
 const PRIMARY_SHADOW = "rgba(89,180,179,0.35)";
 
-const leftVariants = {
+const leftVariants: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.15 } },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } },
 };
